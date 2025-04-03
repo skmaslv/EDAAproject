@@ -1,14 +1,24 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import redis
 import json
+import os
+
+# Get the absolute path to the project root
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+TEMPLATE_DIR = os.path.join(BASE_DIR, "..", "frontend")  # Adjusted to match your structure
 
 # Initialize Flask app
-app = Flask(__name__)
+app = Flask(__name__, template_folder=TEMPLATE_DIR)
 CORS(app)  # Enable CORS for frontend communication
 
 # Initialize Redis client
 redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
+
+@app.route('/')
+def index():
+    """Render the index.html file."""
+    return render_template('index.html')
 
 @app.route('/api/save_area', methods=['POST'])
 def save_area():
@@ -28,7 +38,5 @@ def get_area():
         return jsonify({"error": "No area data found"}), 404
     
     return jsonify({"coordinates": json.loads(area_data)})
-
 if __name__ == '__main__':
-    app.run(debug=True)
-
+    app.run(debug=True, host='0.0.0.0', port='5000')
