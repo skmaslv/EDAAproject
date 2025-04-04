@@ -5,15 +5,22 @@ document.addEventListener("DOMContentLoaded", function () {
         maxZoom: 19,
         attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(map);
-    
+    resetPolygon = false;
+    var polygon;
     function onMapClick(e) {
+        if (resetPolygon) {
+            markers.forEach(marker => marker.remove());
+            markers.length = 0; // Clear the markers array
+            polygon.remove();
+            resetPolygon = false;
+        }
         var marker = L.marker(e.latlng , {icon : xIcon}).addTo(map);
         markers.push(marker);
 
         if (completePolygon()) {
             markers[markers.length -1].remove();
-            L.polygon(markers.map(marker => marker.getLatLng())).addTo(map);
-            markers = []; // Clear markers after creating polygon
+            polygon = L.polygon(markers.map(marker => marker.getLatLng())).addTo(map);
+            resetPolygon = true;
         }
     }
 
