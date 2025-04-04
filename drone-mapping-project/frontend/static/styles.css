@@ -1,1 +1,4 @@
-#map { height: 180px; }
+body{
+    background-color: beige;
+}
+#map {height: 400px}
