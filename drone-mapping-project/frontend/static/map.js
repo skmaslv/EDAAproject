@@ -8,8 +8,8 @@ const xIcon = L.divIcon({
 
 const droneIcon = L.icon({
     iconUrl: "/static/images/uav-quadcopter.svg",
-    iconSize: [24, 24], // Size of the icon
-    iconAnchor: [12, 12] // Anchor point of the icon (centered)
+    iconSize: [30, 30], // Size of the icon
+    iconAnchor: [15, 15] // Anchor point of the icon (centered)
 });
 document.addEventListener("DOMContentLoaded", function () {
     var map = L.map('map').setView([55.7068, 13.1870], 13);
