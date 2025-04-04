@@ -29,6 +29,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 function completePolygon() {
     if (markers.length == 1){
+
         return false;
     }
     var head = markers[0].getLatLng();
