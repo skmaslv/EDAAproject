@@ -19,6 +19,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (completePolygon()) {
             markers[markers.length -1].remove();
+            markers.pop();
             polygon = L.polygon(markers.map(marker => marker.getLatLng())).addTo(map);
             resetPolygon = true;
         }
