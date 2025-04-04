@@ -2,12 +2,10 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import redis
 import json
-import os
-
 
 # Initialize Flask app
 app = Flask(__name__, template_folder="../frontend", static_folder="../frontend/static")
-CORS(app)  # Enable CORS for frontend communication
+CORS(app)
 
 # Initialize Redis client
 redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
@@ -35,6 +33,10 @@ def get_area():
         return jsonify({"error": "No area data found"}), 404
     
     return jsonify({"coordinates": json.loads(area_data)})
+
+# Import and register routes AFTER app creation
+from routes import routes
+app.register_blueprint(routes)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port='5000')
