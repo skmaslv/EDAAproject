@@ -1,4 +1,16 @@
 const markers = [];
+const xIcon = L.divIcon({
+    className: 'custom-x-icon', // Custom CSS class
+    html: '<div style="color: red; font-size: 24px; font-weight: bold;">X</div>', // "X" in red
+    iconSize: [24, 24], // Size of the icon
+    iconAnchor: [12, 12] // Anchor point of the icon (centered)
+});
+
+const droneIcon = L.icon({
+    iconUrl: "/static/images/uav-quadcopter.svg",
+    iconSize: [24, 24], // Size of the icon
+    iconAnchor: [12, 12] // Anchor point of the icon (centered)
+});
 document.addEventListener("DOMContentLoaded", function () {
     var map = L.map('map').setView([55.7068, 13.1870], 13);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -26,6 +38,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     map.on('click', onMapClick);
+    L.marker([55.7068, 13.1870], { icon: droneIcon }).addTo(map);
 });
 
 function completePolygon() {
@@ -41,9 +54,4 @@ function completePolygon() {
 
     return result;
 }
-const xIcon = L.divIcon({
-    className: 'custom-x-icon', // Custom CSS class
-    html: '<div style="color: red; font-size: 24px; font-weight: bold;">X</div>', // "X" in red
-    iconSize: [24, 24], // Size of the icon
-    iconAnchor: [12, 12] // Anchor point of the icon (centered)
-});
+
