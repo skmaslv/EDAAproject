@@ -20,10 +20,13 @@ def handle_polygon():
         coordinates = data['coordinates']
         polygon_id = f"polygon:{int(time.time())}"
         redis_client.set(polygon_id, json.dumps(coordinates))
+        redis_client.publish("polygon_updates", polygon_id)
         
         return jsonify({
             "status": "success",
             "polygon_id": polygon_id,
         })
+    
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
