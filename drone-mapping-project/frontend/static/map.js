@@ -65,8 +65,8 @@ async function sendPolygonToRedis() {
             },
             body: JSON.stringify({ coordinates })
         });
-
-        const result = await response.json();
+        
+        const result = await response.json();  // 🔥 Error happens here if response isn't valid JSON        
         if (!response.ok) throw new Error(result.error || 'Failed to save polygon');
         
         console.log('Polygon saved:', result.message);

@@ -3,9 +3,11 @@ from flask_cors import cross_origin
 import redis
 import json
 import time
-
+from config import Config
 routes = Blueprint('routes', __name__)
-redis_client = redis.Redis(host='localhost', port=6379, decode_responses=False)
+
+
+redis_client = Config.init_redis()
 
 @routes.route('/api/polygons', methods=['POST'])
 @cross_origin()
