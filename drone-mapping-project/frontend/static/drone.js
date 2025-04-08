@@ -1,10 +1,14 @@
+//drone.js
 const droneIcon = L.icon({
     iconUrl: "/static/images/uav-quadcopter.svg",
-    iconSize: [30, 30], // Size of the icon
-    iconAnchor: [15, 15] // Anchor point of the icon (centered)
+    iconSize: [30, 30],
+    iconAnchor: [15, 15]
 });
 
 let droneMarker = null;
+let currentLatLng = null;
+let targetLatLng = null;
+let animationFrameId = null;
 
 async function getDronePosition(droneId) {
     try {
@@ -24,30 +28,55 @@ async function getDronePosition(droneId) {
 function updateDroneMarker(position) {
     if (!position) return;
 
-    if (droneMarker) {
-        droneMarker.setLatLng(position);
-    } else {
-        droneMarker = L.marker(position, { icon: droneIcon }).addTo(window.map);
+    const latLng = L.latLng(position[0], position[1]);
+
+    if (!droneMarker) {
+        droneMarker = L.marker(latLng, { icon: droneIcon }).addTo(window.map);
+        currentLatLng = latLng;
     }
+
+    targetLatLng = latLng;
 }
 
-async function pollDronePosition(droneId, intervalMs = 2000) {
+function animateDrone() {
+    if (!currentLatLng || !targetLatLng) {
+        animationFrameId = requestAnimationFrame(animateDrone);
+        return;
+    }
+
+    const step = 0.05; // Adjust for smoothness (lower = smoother/slower)
+
+    const lat = currentLatLng.lat + (targetLatLng.lat - currentLatLng.lat) * step;
+    const lng = currentLatLng.lng + (targetLatLng.lng - currentLatLng.lng) * step;
+
+    currentLatLng = L.latLng(lat, lng);
+    droneMarker.setLatLng(currentLatLng);
+
+    animationFrameId = requestAnimationFrame(animateDrone);
+}
+
+async function pollDronePosition(droneId, intervalMs = 1000) {
     const position = await getDronePosition(droneId);
     updateDroneMarker(position);
 
-    // Continue polling
     setTimeout(() => pollDronePosition(droneId, intervalMs), intervalMs);
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-    if (window.map) {
+    const start = () => {
+        if (!animationFrameId) {
+            animationFrameId = requestAnimationFrame(animateDrone);
+        }
         pollDronePosition("drone1");
+    };
+
+    if (window.map) {
+        start();
     } else {
-        // Wait until map is ready (failsafe if map loads after DOMContentLoaded)
         const checkMapReady = setInterval(() => {
             if (window.map) {
                 clearInterval(checkMapReady);
-                pollDronePosition("drone1");
+                start();
             }
         }, 100);
     }

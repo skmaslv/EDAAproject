@@ -1,3 +1,4 @@
+#drone_simulation.py
 import time
 import redis
 import json
@@ -9,6 +10,9 @@ import threading
 
 redis_client = Config.init_redis()
 current_polygon = None
+interval = 0.1  # faster movement
+step_size = 0.002  # slightly larger step
+
 def set_drone_position(drone_id, lat, lng):
     redis_client.set(f"drone:{drone_id}:position", json.dumps([lat, lng]))
     print(f"Set drone {drone_id} to position {[lat, lng]}")
@@ -71,7 +75,7 @@ def listen_for_polygon_updates():
 
 
 
-def fly_in_polygon(drone_id, start_position, polygon, interval=0.2):
+def fly_in_polygon(drone_id, start_position, polygon):
     """
     Makes the drone fly around within a polygon.
 
@@ -96,8 +100,8 @@ def fly_in_polygon(drone_id, start_position, polygon, interval=0.2):
                 fly_to_polygon(drone_id, current_position, current_polygon)
                 return
             # Generate a random movement (small step)
-            lat_offset = random.uniform(-0.001, 0.001)  # Small latitude change
-            lng_offset = random.uniform(-0.001, 0.001)  # Small longitude change
+            lat_offset = random.uniform(-step_size, step_size)  # Small latitude change
+            lng_offset = random.uniform(-step_size, step_size)  # Small longitude change
             new_position = (current_position[0] + lat_offset, current_position[1] + lng_offset)
 
             # Check if the new position is inside the polygon
@@ -114,7 +118,7 @@ def fly_in_polygon(drone_id, start_position, polygon, interval=0.2):
     except KeyboardInterrupt:
         print(f"Drone {drone_id} stopped flying.")
 
-def fly_to_polygon(drone_id, start_position, polygon, step_size=0.0001, interval=0.2):
+def fly_to_polygon(drone_id, start_position, polygon):
     """
     Moves the drone from a start position to the nearest point inside the polygon.
 
@@ -168,7 +172,7 @@ def fly_to_polygon(drone_id, start_position, polygon, step_size=0.0001, interval
 
             # Wait for the next update
             time.sleep(interval)
-        fly_in_polygon(drone_id, current_position, polygon, interval=1)
+        fly_in_polygon(drone_id, current_position, polygon)
          # Once inside the polygon, start flying randomly within it  
         print(f"Drone {drone_id} has entered the polygon at {current_position}")
     except KeyboardInterrupt:
