@@ -3,9 +3,12 @@ import redis
 import json
 from flask import request
 from config import Config
+import random
+import threading
+
 
 redis_client = Config.init_redis()
-
+current_polygon = None
 def set_drone_position(drone_id, lat, lng):
     redis_client.set(f"drone:{drone_id}:position", json.dumps([lat, lng]))
     print(f"Set drone {drone_id} to position {[lat, lng]}")
@@ -44,30 +47,140 @@ def winding_number(point, polygon):
     return wn != 0  # Non-zero winding means inside
 
 def listen_for_polygon_updates():
+    global current_polygon
     pubsub = redis_client.pubsub()
     pubsub.subscribe("polygon_updates")
-    print("Listening for polygon updates drone_simulation...")
+    print("Listening for polygon updates in drone_simulation...")
 
     try:
         while True:
             message = pubsub.get_message()
-            if message and message['type'] == 'message': # Decode bytes to str
+            if message and message['type'] == 'message':
                 polygon_key = message['data']
                 polygon_data = redis_client.get(polygon_key)
                 if not polygon_data:
                     continue
 
                 polygon = json.loads(polygon_data)
-
-                # Example test point
-                test_point = (55.705, 13.188)
-                inside = winding_number(test_point, polygon)
-                print(f"Test point {test_point} inside polygon? {inside}")
-            time.sleep(0.1)  # Prevent CPU hogging
+                current_polygon = polygon
+                print(f"Received new polygon: {current_polygon}")
+            time.sleep(0.1)
     except KeyboardInterrupt:
         print("Stopped listening for polygon updates.")
 
+
+
+
+def fly_in_polygon(drone_id, start_position, polygon, interval=0.2):
+    """
+    Makes the drone fly around within a polygon.
+
+    Args:
+        drone_id (str): The ID of the drone.
+        start_position (tuple): The starting position of the drone (lat, lng).
+        polygon (list): A list of (lat, lng) tuples defining the polygon.
+        interval (int): Time interval (in seconds) between position updates.
+    """
+    global current_polygon
+    current_position = start_position
+    set_drone_position(drone_id, *current_position)  # Set initial position
+    print(f"Drone {drone_id} starting at {current_position}")
+
+    try:
+        while True:
+            if current_polygon is None:
+                print("No polygon set. Waiting for updates...")
+                time.sleep(interval)
+                continue
+            if current_polygon != polygon:
+                fly_to_polygon(drone_id, current_position, current_polygon)
+                return
+            # Generate a random movement (small step)
+            lat_offset = random.uniform(-0.001, 0.001)  # Small latitude change
+            lng_offset = random.uniform(-0.001, 0.001)  # Small longitude change
+            new_position = (current_position[0] + lat_offset, current_position[1] + lng_offset)
+
+            # Check if the new position is inside the polygon
+            if winding_number(new_position, polygon):
+                # Update the drone's position
+                current_position = new_position
+                set_drone_position(drone_id, *current_position)
+                print(f"Drone {drone_id} moved to {current_position}")
+            else:
+                print(f"Drone {drone_id} attempted to move outside the polygon. Retrying...")
+
+            # Wait for the next update
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        print(f"Drone {drone_id} stopped flying.")
+
+def fly_to_polygon(drone_id, start_position, polygon, step_size=0.0001, interval=0.2):
+    """
+    Moves the drone from a start position to the nearest point inside the polygon.
+
+    Args:
+        drone_id (str): The ID of the drone.
+        start_position (tuple): The starting position of the drone (lat, lng).
+        polygon (list): A list of (lat, lng) tuples defining the polygon.
+        step_size (float): The size of each movement step.
+        interval (float): Time interval (in seconds) between position updates.
+    """
+    global current_polygon
+    current_polygon = polygon
+    current_position = start_position
+    set_drone_position(drone_id, *current_position)  # Set initial position
+    print(f"Drone {drone_id} starting at {current_position}")
+
+    # Calculate the centroid of the polygon as the target point
+    target_lat = sum(point[0] for point in polygon) / len(polygon)
+    target_lng = sum(point[1] for point in polygon) / len(polygon)
+    target_position = (target_lat, target_lng)
+    print(f"Target position (centroid of polygon): {target_position}")
+
+    try:
+        while not winding_number(current_position, polygon):
+            if current_polygon is None:
+                print("No polygon set. Waiting for updates...")
+                time.sleep(interval)
+                continue
+            if current_polygon != polygon:
+                fly_to_polygon(drone_id, current_position, current_polygon)
+                return
+            # Calculate the direction vector toward the target
+            direction_lat = target_position[0] - current_position[0]
+            direction_lng = target_position[1] - current_position[1]
+
+            # Normalize the direction vector
+            magnitude = (direction_lat**2 + direction_lng**2)**0.5
+            unit_lat = direction_lat / magnitude
+            unit_lng = direction_lng / magnitude
+
+            # Move the drone a step closer to the target
+            new_position = (
+                current_position[0] + unit_lat * step_size,
+                current_position[1] + unit_lng * step_size
+            )
+
+            # Update the drone's position
+            current_position = new_position
+            set_drone_position(drone_id, *current_position)
+            print(f"Drone {drone_id} moved to {current_position}")
+
+            # Wait for the next update
+            time.sleep(interval)
+        fly_in_polygon(drone_id, current_position, polygon, interval=1)
+         # Once inside the polygon, start flying randomly within it  
+        print(f"Drone {drone_id} has entered the polygon at {current_position}")
+    except KeyboardInterrupt:
+        print(f"Drone {drone_id} stopped flying to the polygon.")
 if __name__ == '__main__':
-    set_drone_position("drone1", 55.705, 13.188)
-    get_drone_position("drone1")
-    listen_for_polygon_updates()
+    # Start listener thread
+    listener_thread = threading.Thread(target=listen_for_polygon_updates, daemon=True)
+    listener_thread.start()
+
+    # Start flying logic
+    start_position = get_drone_position("drone1") or (55.705, 13.188)
+    try:
+        fly_in_polygon("drone1", start_position, current_polygon or [])  # Empty fallback
+    except KeyboardInterrupt:
+        print("Simulation interrupted.")
