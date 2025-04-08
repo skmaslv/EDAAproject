@@ -1,1 +1,14 @@
-#map { height: 180px; }
+#map {
+
+    padding: 200px;
+    margin: 20px ;
+}
+
+body{
+    background-color: #e1fcdb;
+}
+h1{
+    font-family: fantasy, Copperplate;
+}
+    
+
