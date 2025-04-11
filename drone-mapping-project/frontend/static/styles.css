@@ -1,43 +1,131 @@
+/* Existing CSS */
 #map {
-
-    padding: 200px;
-    height: 400px;
-    border-style: double;
+  padding: 200px;
+  height: 400px;
+  border-style: double;
 }
 
-body{
-    background-color: #e1fcdb;
-    padding-left: 20px;
-    padding-right: 20px;
+body {
+  background-color: #e1fddb;
+  padding-left: 20px;
+  padding-right: 20px;
 }
-h1{
-    font-family: monospace, "Lucida Console";
-}
- p{
-    font-family: Arial, Helvetica, sans-serif;
- }  
- .button {
-    border: none;
-    color: white;
-    padding: 16px 32px;
-    text-align: center;
-    text-decoration: none;
-    display: inline-block;
-    font-size: 16px;
-    margin: 4px 2px;
-    transition-duration: 0.4s;
-    cursor: pointer;
-    border-radius: 8px;
-  }
-  .button1:hover {
-    background-color: #aa0404;
-    color: white;
-    box-shadow: 0 12px 16px 0 rgba(0,0,0,0.24), 0 17px 50px 0 rgba(0,0,0,0.19);
-  }
-  .button1 {
-    background-color: white; 
-    color: black; 
-    border: 2px solid #aa0404;
-  }
-  
 
+h1 {
+  font-family: monospace, "Lucida Console";
+}
+
+p {
+  font-family: Arial, Helvetica, sans-serif;
+}  
+
+.button {
+  border: none;
+  color: white;
+  padding: 16px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  transition-duration: 0.4s;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.button1:hover {
+  background-color: #aa0404;
+  color: white;
+  box-shadow: 0 12px 16px 0 rgba(0,0,0,0.24), 0 17px 50px 0 rgba(0,0,0,0.19);
+}
+
+.button1 {
+  background-color: white; 
+  color: black; 
+  border: 2px solid #aa0404;
+}
+
+/* New CSS for map controls */
+.leaflet-control .complete-btn button, 
+.leaflet-control .clear-btn button {
+  background: white;
+  border: 2px solid rgba(0,0,0,0.2);
+  border-radius: 4px;
+  padding: 5px 10px;
+  margin: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: Arial, Helvetica, sans-serif;
+  transition: background 0.2s;
+}
+
+.leaflet-control .complete-btn button:hover, 
+.leaflet-control .clear-btn button:hover {
+  background: #f4f4f4;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.leaflet-top .leaflet-control {
+  margin-top: 60px;
+}
+
+/* Make buttons match your existing button style */
+.leaflet-control .complete-btn button {
+  border-color: #4CAF50;
+  color: #2E7D32;
+}
+
+.leaflet-control .clear-btn button {
+  border-color: #aa0404;
+  color: #aa0404;
+}
+
+/* Add to your existing CSS */
+.leaflet-marker-icon {
+  cursor: move !important;
+}
+
+.leaflet-marker-icon:hover {
+  filter: brightness(1.2);
+  transform: scale(1.1);
+  transition: all 0.2s;
+}
+
+/* Feedback message styling */
+.save-feedback {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #4CAF50;
+  color: white;
+  padding: 15px 25px;
+  border-radius: 5px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+  z-index: 1000;
+  opacity: 1;
+  transition: opacity 1s ease-out;
+}
+
+.save-feedback.fade-out {
+  opacity: 0;
+}
+
+/* Make sure markers disappear when completed */
+.leaflet-marker-icon.completed {
+  display: none;
+}
+
+.custom-x-icon.dimmed {
+  opacity: 0.3;
+  transform: scale(0.8);
+}
+
+.save-feedback.error {
+  background-color: #aa0404;
+}
+
+.custom-x-icon.dimmed {
+  opacity: 0.3;
+  transform: scale(0.8);
+  transition: all 0.3s;
+}
