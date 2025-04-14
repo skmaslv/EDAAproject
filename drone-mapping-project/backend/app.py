@@ -1,26 +1,63 @@
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
+from flask_socketio import SocketIO
 import redis
 import json
 import os
-
-from flask import Flask
-from flask_cors import CORS
+import cv2
+import base64
+import threading
+import time
 from config import Config
 from routes import routes
 
-app = Flask(__name__,  template_folder="../frontend", static_folder="../frontend/static")
-#app.config.from_object(Config)
+app = Flask(__name__, template_folder="../frontend", static_folder="../frontend/static")
 CORS(app)
+socketio = SocketIO(app, cors_allowed_origins='*')  # Add Socket.IO
 
 redis_client = Config.init_redis()
-
 app.register_blueprint(routes)
 
+# Video streaming variables
+camera = cv2.VideoCapture(0)
+streaming = False
+
+def encode_frame(frame):
+    _, buffer = cv2.imencode('.jpg', frame)
+    return base64.b64encode(buffer).decode('utf-8')
+
+def stream_frames():
+    global streaming
+    while streaming:
+        success, frame = camera.read()
+        if not success:
+            print("Failed to capture frame")
+            continue
+        frame_data = encode_frame(frame)
+        socketio.emit('video_frame', {'image': frame_data})
+        socketio.sleep(0.03)  # ~30 FPS
+
+# Socket.IO events
+@socketio.on('start_stream')
+def start_stream():
+    global streaming
+    if not streaming:
+        streaming = True
+        socketio.start_background_task(stream_frames)
+
+@socketio.on('stop_stream')
+def stop_stream():
+    global streaming
+    streaming = False
 @app.route('/')
 def index():
     """Render the index.html file."""
     return render_template('index.html')
+
+@app.route('/live_feed')
+def live_feed():
+    """Render the live_feed.html file."""
+    return render_template('live_feed.html')
 
 @app.route('/api/save_area', methods=['POST'])
 def save_area():

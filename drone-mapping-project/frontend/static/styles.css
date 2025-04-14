@@ -5,6 +5,8 @@ html, body {
     height: 100%;
     width: 100%;
     overflow: hidden;
+    
+    position: relative;
     background-color: #e1fddb;
     font-family: 'Lucida Console', 'Lucida Console Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif, Helvetica, sans-serif;
 }
@@ -18,14 +20,34 @@ html, body {
     background-color: #e1fddb;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
-
+.header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: #e1fddb;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
 .header-text {
     flex: 1;
 }
 
-/* Live feed button styling */
-.live-feed-button {
-    margin-left: 20px;
+.video-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: calc(100vh - 60px);
+    
+    background-color: #e1fddb;
+}
+
+#video {
+    width: 640px;
+    height: 480px;
+    object-fit: contain;
+    border: 2px solid #333;
+    border-radius: 8px;
+    background-color: #000;
 }
 
 /* Map container with padding */
