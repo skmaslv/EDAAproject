@@ -1,1 +1,43 @@
-#map { height: 180px; }
+#map {
+
+    padding: 200px;
+    height: 400px;
+    border-style: double;
+}
+
+body{
+    background-color: #e1fcdb;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+h1{
+    font-family: monospace, "Lucida Console";
+}
+ p{
+    font-family: Arial, Helvetica, sans-serif;
+ }  
+ .button {
+    border: none;
+    color: white;
+    padding: 16px 32px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    transition-duration: 0.4s;
+    cursor: pointer;
+    border-radius: 8px;
+  }
+  .button1:hover {
+    background-color: #aa0404;
+    color: white;
+    box-shadow: 0 12px 16px 0 rgba(0,0,0,0.24), 0 17px 50px 0 rgba(0,0,0,0.19);
+  }
+  .button1 {
+    background-color: white; 
+    color: black; 
+    border: 2px solid #aa0404;
+  }
+  
+

@@ -4,13 +4,18 @@ import redis
 import json
 import os
 
+from flask import Flask
+from flask_cors import CORS
+from config import Config
+from routes import routes
 
-# Initialize Flask app
-app = Flask(__name__, template_folder="../frontend", static_folder="../frontend/static")
-CORS(app)  # Enable CORS for frontend communication
+app = Flask(__name__,  template_folder="../frontend", static_folder="../frontend/static")
+#app.config.from_object(Config)
+CORS(app)
 
-# Initialize Redis client
-redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
+redis_client = Config.init_redis()
+
+app.register_blueprint(routes)
 
 @app.route('/')
 def index():
@@ -36,5 +41,24 @@ def get_area():
     
     return jsonify({"coordinates": json.loads(area_data)})
 
+@app.route('/api/drone/<drone_id>', methods=['POST'])
+def set_drone_position(drone_id):
+    data = request.get_json()
+    lat, lng = data.get('lat'), data.get('lng')
+    if lat is None or lng is None:
+        return jsonify({"error": "Missing lat or lng"}), 400
+
+    redis_client.set(f"drone:{drone_id}:position", json.dumps([lat, lng]))
+    return jsonify({"message": "Position updated"})
+
+@app.route('/api/drone/<drone_id>', methods=['GET'])
+def get_drone_position(drone_id):
+    data = redis_client.get(f"drone:{drone_id}:position")
+    if data is None:
+        return jsonify({"error": "No position found"}), 404
+    return jsonify({"position": json.loads(data)})
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port='5000')
+
