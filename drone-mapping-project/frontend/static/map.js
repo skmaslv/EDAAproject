@@ -8,7 +8,7 @@ let resetPolygon = false;
 
 const xIcon = L.divIcon({
     className: 'custom-x-icon',
-    html: '<div style="color: red; font-size: 24px; font-weight: bold;">X</div>',
+    html: '<div style="color: white; font-size: 24px; font-weight: bold;">X</div>',
     iconSize: [24, 24],
     iconAnchor: [12, 12]
 });
@@ -327,14 +327,15 @@ async function sendPolygonToRedis(coordinates) {
 
 document.addEventListener("DOMContentLoaded", function () {
     window.map = L.map('map').setView([55.7068, 13.1870], 13);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    }).addTo(map);
+    L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+        attribution: 'Google Satellite'
+      }).addTo(map);
 
     const completeButton = L.control({ position: 'topright' });
     completeButton.onAdd = function () {
-        const div = L.DomUtil.create('div', 'complete-btn');
+        const div = L.DomUtil.create('div', 'green-button');
         div.innerHTML = '<button>Complete Area</button>';
         div.onclick = function (e) {
             e.stopPropagation();
@@ -346,7 +347,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const clearButton = L.control({ position: 'topright' });
     clearButton.onAdd = function () {
-        const div = L.DomUtil.create('div', 'clear-btn');
+        const div = L.DomUtil.create('div', 'red-button');
         div.innerHTML = '<button>Clear Points</button>';
         div.onclick = function (e) {
             e.stopPropagation();
