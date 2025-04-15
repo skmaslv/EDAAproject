@@ -222,6 +222,7 @@ function deleteMarker(marker) {
     markers = markers.filter(m => m !== marker);
     updateVisuals();
     if (polygon) updatePolygon();
+
 }
 
 function completePolygon() {
@@ -322,6 +323,37 @@ async function sendPolygonToRedis(coordinates) {
     } catch (error) {
         console.error('Save error:', error);
         showSaveFeedback('Save failed: ' + error.message, true);
+    }
+}
+
+async function deletePolygonFromRedis(coordinates) {
+    if (!coordinates || coordinates.length < 3) {
+        showSaveFeedback("Invalid polygon - not enough points to delete", true);
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/polygons`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                coordinates: coordinates.slice(0, -1) // match backend expectations
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(await response.text());
+        }
+
+        const result = await response.json();
+        showSaveFeedback(result.message || 'Area deleted successfully!');
+        console.log('Deleted polygon coordinates:', coordinates);
+
+    } catch (error) {
+        console.error('Delete error:', error);
+        showSaveFeedback('Delete failed: ' + error.message, true);
     }
 }
 

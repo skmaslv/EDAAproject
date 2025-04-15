@@ -6,6 +6,7 @@ from flask import request
 from config import Config
 import random
 import threading
+from redis_utils import set_drone_position, get_drone_position
 
 
 redis_client = Config.init_redis()
@@ -13,19 +14,6 @@ current_polygon = None
 interval = 0.1  # faster movement
 step_size = 0.002  # slightly larger step
 
-def set_drone_position(drone_id, lat, lng):
-    redis_client.set(f"drone:{drone_id}:position", json.dumps([lat, lng]))
-    print(f"Set drone {drone_id} to position {[lat, lng]}")
-
-def get_drone_position(drone_id):
-    data = redis_client.get(f"drone:{drone_id}:position")
-    if data:
-        position = json.loads(data)
-        print(f"Drone {drone_id} position:", position)
-        return position
-    else:
-        print(f"No position found for drone {drone_id}")
-        return None
 
 
 def is_left(p0, p1, p2):
@@ -39,7 +27,7 @@ def winding_number(point, polygon):
     
     for i in range(len(polygon)):
         p1 = polygon[i]
-        p2 = polygon[(i + 1) % len(polygon)]  # Wrap around to the first vertex
+        p2 = polygon[(i + 1)% len(polygon)]  # Wrap around to the first vertex
         
         if p1[1] <= y < p2[1]:  # Edge crosses upward
             if is_left(p1, p2, point) > 0:
@@ -54,7 +42,6 @@ def listen_for_polygon_updates():
     global current_polygon
     pubsub = redis_client.pubsub()
     pubsub.subscribe("polygon_updates")
-    print("Listening for polygon updates in drone_simulation...")
 
     try:
         while True:
@@ -92,7 +79,6 @@ def fly_in_polygon(drone_id, start_position, polygon):
     try:
         while True:
             if current_polygon is None:
-                print("No polygon set. Waiting for updates...")
                 time.sleep(interval)
                 continue
             if current_polygon != polygon:
@@ -129,7 +115,6 @@ def fly_to_polygon(drone_id, start_position, polygon):
     current_polygon = polygon
     current_position = start_position
     set_drone_position(drone_id, *current_position)  # Set initial position
-    print(f"Drone {drone_id} starting at {current_position}")
 
     # Calculate the centroid of the polygon as the target point
     target_lat = sum(point[0] for point in polygon) / len(polygon)
@@ -140,7 +125,6 @@ def fly_to_polygon(drone_id, start_position, polygon):
     try:
         while not winding_number(current_position, polygon):
             if current_polygon is None:
-                print("No polygon set. Waiting for updates...")
                 time.sleep(interval)
                 continue
             if current_polygon != polygon:
@@ -164,7 +148,6 @@ def fly_to_polygon(drone_id, start_position, polygon):
             # Update the drone's position
             current_position = new_position
             set_drone_position(drone_id, *current_position)
-            print(f"Drone {drone_id} moved to {current_position}")
 
             # Wait for the next update
             time.sleep(interval)
@@ -173,14 +156,18 @@ def fly_to_polygon(drone_id, start_position, polygon):
         print(f"Drone {drone_id} has entered the polygon at {current_position}")
     except KeyboardInterrupt:
         print(f"Drone {drone_id} stopped flying to the polygon.")
-if __name__ == '__main__':
+
+def start_drone_simulation(drone_id="drone1", start_pos=(55.705, 13.188)):
     # Start listener thread
     listener_thread = threading.Thread(target=listen_for_polygon_updates, daemon=True)
     listener_thread.start()
 
-    # Start flying logic
-    start_position = get_drone_position("drone1") or (55.705, 13.188)
-    try:
-        fly_in_polygon("drone1", start_position, current_polygon or [])  # Empty fallback
-    except KeyboardInterrupt:
-        print("Simulation interrupted.")
+    # Start drone flying logic in its own thread too
+    def drone_worker():
+        try:
+            fly_in_polygon(drone_id, start_pos, current_polygon or [])
+        except KeyboardInterrupt:
+            print("Drone simulation interrupted.")
+
+    drone_thread = threading.Thread(target=drone_worker, daemon=True)
+    drone_thread.start()
