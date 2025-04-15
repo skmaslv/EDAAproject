@@ -12,7 +12,7 @@ from redis_utils import set_drone_position, get_drone_position
 redis_client = Config.init_redis()
 current_polygon = None
 interval = 0.1  # faster movement
-step_size = 0.002  # slightly larger step
+step_size = 0.0005  # slightly larger step
 
 
 
@@ -49,9 +49,12 @@ def listen_for_polygon_updates():
             if message and message['type'] == 'message':
                 polygon_key = message['data']
                 polygon_data = redis_client.get(polygon_key)
+                if polygon_key == "polygon_deleted":
+                    print("Polygon was deleted.")
+                    current_polygon = None
+                    continue
                 if not polygon_data:
                     continue
-
                 polygon = json.loads(polygon_data)
                 current_polygon = polygon
                 print(f"Received new polygon: {current_polygon}")
@@ -157,7 +160,7 @@ def fly_to_polygon(drone_id, start_position, polygon):
     except KeyboardInterrupt:
         print(f"Drone {drone_id} stopped flying to the polygon.")
 
-def start_drone_simulation(drone_id="drone1", start_pos=(55.705, 13.188)):
+def start_drone_simulation(drone_id, start_pos):
     # Start listener thread
     listener_thread = threading.Thread(target=listen_for_polygon_updates, daemon=True)
     listener_thread.start()

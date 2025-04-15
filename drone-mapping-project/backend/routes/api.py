@@ -77,3 +77,21 @@ def handle_polygon():
     
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+@api_routes.route('/api/polygons', methods=['DELETE'])
+def delete_polygon():
+    redis_client = get_redis()
+    try:
+        deleted = False
+        for key in redis_client.scan_iter("polygon:*"):
+            redis_client.delete(key)
+            deleted = True
+
+        if deleted:
+            # Notify subscribers that polygon is gone
+            redis_client.publish("polygon_updates", "polygon_deleted")
+            return jsonify({"message": "Polygon(s) deleted"}), 200
+        else:
+            return jsonify({"message": "No polygons to delete"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
