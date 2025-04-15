@@ -1,13 +1,9 @@
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from flask_socketio import SocketIO
-import redis
 import json
-import os
 import cv2
 import base64
-import threading
-import time
 from config import Config
 from routes import routes
 

@@ -88,7 +88,6 @@ def fly_in_polygon(drone_id, start_position, polygon):
     global current_polygon
     current_position = start_position
     set_drone_position(drone_id, *current_position)  # Set initial position
-    print(f"Drone {drone_id} starting at {current_position}")
 
     try:
         while True:
@@ -109,9 +108,6 @@ def fly_in_polygon(drone_id, start_position, polygon):
                 # Update the drone's position
                 current_position = new_position
                 set_drone_position(drone_id, *current_position)
-                print(f"Drone {drone_id} moved to {current_position}")
-            else:
-                print(f"Drone {drone_id} attempted to move outside the polygon. Retrying...")
 
             # Wait for the next update
             time.sleep(interval)
