@@ -1,18 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Drone Mapping</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-     crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-     crossorigin=""></script>
-    <script src="{{ url_for('static', filename='map.js') }}"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin=""
+    />
 </head>
 
 <body>
@@ -21,40 +17,21 @@
             <button class="button retro-button">Back</button>
         </a>
         <div class="control-buttons">
-            <button class="button retro-button" onclick="startStream()">▶️ Start Stream</button>
-            <button class="button retro-button" onclick="stopStream()">⏹️ Stop Stream</button>
+            <button class="button retro-button stream-button">▶️ Start Stream</button>
+            <button class="button retro-button stop-button" disabled>⏹️ Stop Stream</button>
         </div>
     </div>
-    
+
     <div class="video-container">
         <img id="video" alt="Live feed will appear here"/>
     </div>
 
-    <script>
-        const socket = io();
-        const video = document.getElementById('video');
-
-        // Auto-start the stream when page loads
-        document.addEventListener('DOMContentLoaded', () => {
-            startStream();
-        });
-
-        // Listen for video frames
-        socket.on('video_frame', (data) => {
-            video.src = 'data:image/jpeg;base64,' + data.image;
-        });
-
-        function startStream() {
-            socket.emit('start_stream');
-            document.querySelector('.stream-button').disabled = true;
-            document.querySelector('.stop-button').disabled = false;
-        }
-
-        function stopStream() {
-            socket.emit('stop_stream');
-            document.querySelector('.stream-button').disabled = false;
-            document.querySelector('.stop-button').disabled = true;
-        }
-    </script>
+    <!-- Scripts placed at the end of body for proper loading -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""
+    ></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='video.js') }}"></script>
 </body>
 </html>
