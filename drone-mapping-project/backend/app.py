@@ -1,9 +1,13 @@
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from flask_socketio import SocketIO
+import redis
 import json
+import os
 import cv2
 import base64
+import threading
+import time
 from config import Config
 from routes import routes
 
@@ -94,3 +98,4 @@ def get_drone_position(drone_id):
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port='5000')
+
