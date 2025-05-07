@@ -163,7 +163,7 @@ function onMapClick(e) {
     // Add the new marker temporarily
     const newMarker = L.marker(e.latlng, {
         icon: xIcon,
-        draggable: true
+        draggable: false
     }).addTo(map);
 
     // Create temporary markers array including the new one
@@ -190,29 +190,6 @@ function onMapClick(e) {
         e.originalEvent.preventDefault();
         deleteMarker(marker);
     });
-
-    marker.on('dragend', () => {
-        // After dragging, check if the marker is still valid
-        const currentPos = marker.getLatLng();
-        const tempPoints = markers.map(m => m === marker ? currentPos : m.getLatLng());
-        const validPoints = filterValidPoints(tempPoints);
-        const hullPoints = convexHull(validPoints);
-        
-        const isStillValid = hullPoints.some(p => 
-            p.lat.toFixed(6) === currentPos.lat.toFixed(6) && 
-            p.lng.toFixed(6) === currentPos.lng.toFixed(6)
-        );
-        
-        if (!isStillValid) {
-            // Move back to original position
-            marker.setLatLng(e.target._latlng);
-            alert("This position would make the point invalid for the convex hull");
-        } else {
-            updateVisuals();
-            if (polygon) updatePolygon();
-        }
-    });
-
     markers.push(marker);
     updateVisuals();
 }

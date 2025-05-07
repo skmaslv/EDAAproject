@@ -8,6 +8,7 @@ from config import Config
 routes = Blueprint('routes', __name__)
 redis_client = Config.init_redis()
 
+#Monotone chain algorithm 
 def apply_convex_hull(points):
     """Simple convex hull implementation for the backend"""
     if len(points) <= 1:
@@ -62,7 +63,7 @@ def handle_polygon():
         
         return jsonify({
             "status": "success",
-            "message": "Convex hull saved",
+            "message": "Area was saved",
             "point_count": len(hull_points),
             "polygon_id": polygon_id
         })
