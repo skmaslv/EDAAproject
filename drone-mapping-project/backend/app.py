@@ -20,7 +20,7 @@ def live_feed():
 if __name__ == '__main__':
     start_position = (55.705, 13.188)
     start_drone_simulation("drone1", start_position)
-
+    start_drone_simulation("drone2", (55.68,13.2))
     # Then start the web app
     socketio.init_app(app)  # Attach to app
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)

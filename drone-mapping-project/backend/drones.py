@@ -120,7 +120,7 @@ def fly_to_polygon(drone_id, start_position, polygon):
     target_lat = sum(point[0] for point in polygon) / len(polygon)
     target_lng = sum(point[1] for point in polygon) / len(polygon)
     target_position = (target_lat, target_lng)
-    print(f"Target position (centroid of polygon): {target_position}")
+    print(f"Target position for {drone_id} (centroid of polygon): {target_position}")
 
     try:
         while not winding_number(current_position, polygon):
@@ -157,7 +157,7 @@ def fly_to_polygon(drone_id, start_position, polygon):
     except KeyboardInterrupt:
         print(f"Drone {drone_id} stopped flying to the polygon.")
 
-def start_drone_simulation(drone_id="drone1", start_pos=(55.705, 13.188)):
+def start_drone_simulation(drone_id, start_pos):
     # Start listener thread
     listener_thread = threading.Thread(target=listen_for_polygon_updates, daemon=True)
     listener_thread.start()
