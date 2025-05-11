@@ -6,18 +6,54 @@ const droneIcon = L.icon({
 
 let drones = {
     drone1: {
+        id: "drone1",
         marker: null,
-        currentLatLng: null,
+        currentLatLng: [55.705, 13.188],
         targetLatLng: null,
         animationFrameId: null
     },
     drone2: {
+        id: "drone2",
         marker: null,
-        currentLatLng: null,
+        currentLatLng: [55.708, 13.19],
         targetLatLng: null,
         animationFrameId: null
     }
 };
+
+//Moving drone logic to frontend.
+function isLeft(p0, p1, p2) {
+    return (p1[0] - p0[0]) * (p2[1] - p0[1]) - (p2[0] - p0[0]) * (p1[1] - p0[1]);
+}
+
+function windingNumber(point, polygon) {
+    let wn = 0;
+    for (let i = 0; i < polygon.length; i++) {
+        const p1 = polygon[i];
+        const p2 = polygon[(i + 1) % polygon.length];
+        if (p1[1] <= point[1]) {
+            if (p2[1] > point[1] && isLeft(p1, p2, point) > 0) wn++;
+        } else {
+            if (p2[1] <= point[1] && isLeft(p1, p2, point) < 0) wn--;
+        }
+    }
+    return wn !== 0;
+}
+
+function getRandomPointInPolygon(polygonLatLngs) {
+    const bounds = L.latLngBounds(polygonLatLngs);
+    let attempts = 0;
+    while (attempts < 1000) {
+        const lat = bounds.getSouth() + Math.random() * (bounds.getNorth() - bounds.getSouth());
+        const lng = bounds.getWest() + Math.random() * (bounds.getEast() - bounds.getWest());
+        if (windingNumber([lat, lng], polygonLatLngs.map(p => [p.lat, p.lng]))) {
+            return [lat, lng];
+        }
+        attempts++;
+    }
+    console.warn("Failed to find point inside polygon.");
+    return null;
+}
 
 async function getDronePosition(droneId) {
     try {
@@ -70,12 +106,134 @@ function animateDrone(droneId) {
     drone.animationFrameId = requestAnimationFrame(() => animateDrone(droneId));
 }
 
-async function pollDronePosition(droneId, intervalMs = 1000) {
-    const position = await getDronePosition(droneId);
-    updateDroneMarker(droneId, position);
+// async function pollDronePosition(droneId, intervalMs = 1000) {
+//     const position = await getDronePosition(droneId);
+//     updateDroneMarker(droneId, position);
 
-    setTimeout(() => pollDronePosition(droneId, intervalMs), intervalMs);
+//     setTimeout(() => pollDronePosition(droneId, intervalMs), intervalMs);
+// }
+function startFrontendDroneSimulation(drone) {
+    const polygonLatLngs = polygon.getLatLngs()[0];
+    // Compute centroid of the polygon
+    const latLngs = polygonLatLngs.map(p => [p.lat, p.lng]);
+    const centroid = latLngs.reduce((acc, cur) => [acc[0] + cur[0], acc[1] + cur[1]], [0, 0])
+        .map(sum => sum / latLngs.length);
+
+    function flyToPolygon() {
+        const stepSize = 0.0005;
+        const dirLat = centroid[0] - drone.currentLatLng.lat;
+        const dirLng = centroid[1] - drone.currentLatLng.lng;
+        const distance = Math.sqrt(dirLat * dirLat + dirLng * dirLng);
+
+        if (distance < 0.0003 || windingNumber([drone.currentLatLng.lat, drone.currentLatLng.lng], latLngs)) {
+            console.log(`${drone.id} reached the polygon`);
+            moveInsidePolygon(); // Start normal random movement
+            return;
+        }
+
+        const unitLat = dirLat / distance;
+        const unitLng = dirLng / distance;
+
+        drone.currentLatLng = L.latLng(
+            drone.currentLatLng.lat + unitLat * stepSize,
+            drone.currentLatLng.lng + unitLng * stepSize
+        );
+        drone.marker.setLatLng(drone.currentLatLng);
+
+        drone.animationFrameId = requestAnimationFrame(flyToPolygon);
+    }
+
+    function moveInsidePolygon() {
+        const stepSize = 0.0003;
+        const closeEnoughThreshold = 0.0002;
+    
+        function chooseNewTarget() {
+            const newTarget = getRandomPointInPolygon(polygon.getLatLngs()[0]);
+            return newTarget ? L.latLng(newTarget[0], newTarget[1]) : null;
+        }
+    
+        drone.targetLatLng = chooseNewTarget();
+    
+        function move() {
+            // ✅ Check for polygon deletion
+            if (!polygon || !polygon.getLatLngs().length) {
+                console.log(`Polygon deleted. ${drone.id} returning to standby.`);
+                if (drone.animationFrameId) {
+                    cancelAnimationFrame(drone.animationFrameId);
+                    drone.animationFrameId = null;
+                }
+                drone.marker.remove();
+                waitForPolygonThenStart(drone.id);
+                return;
+            }
+    
+            if (!drone.targetLatLng) {
+                drone.targetLatLng = chooseNewTarget();
+                drone.animationFrameId = requestAnimationFrame(move);
+                return;
+            }
+    
+            const dx = drone.targetLatLng.lat - drone.currentLatLng.lat;
+            const dy = drone.targetLatLng.lng - drone.currentLatLng.lng;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+    
+            if (dist < closeEnoughThreshold) {
+                drone.targetLatLng = chooseNewTarget();
+            } else {
+                const unitLat = dx / dist;
+                const unitLng = dy / dist;
+    
+                const newLat = drone.currentLatLng.lat + unitLat * stepSize;
+                const newLng = drone.currentLatLng.lng + unitLng * stepSize;
+    
+                const candidate = [newLat, newLng];
+                if (windingNumber(candidate, polygon.getLatLngs()[0].map(p => [p.lat, p.lng]))) {
+                    drone.currentLatLng = L.latLng(newLat, newLng);
+                    drone.marker.setLatLng(drone.currentLatLng);
+                } else {
+                    drone.targetLatLng = chooseNewTarget();
+                }
+            }
+    
+            if (!drone._lastPersist || Date.now() - drone._lastPersist > 2000) {
+                drone._lastPersist = Date.now();
+                fetch(`http://localhost:5000/api/drone/${drone.id}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        lat: drone.currentLatLng.lat,
+                        lng: drone.currentLatLng.lng
+                    })
+                }).catch(console.error);
+            }
+    
+            drone.animationFrameId = requestAnimationFrame(move);
+        }
+    
+        move();
+    }
+    
+    
+    
+
+    flyToPolygon();
 }
+
+function waitForPolygonThenStart(droneId) {
+    const drone = drones[droneId];
+    drone.currentLatLng = L.latLng(drone.currentLatLng); // Start slightly outside polygon
+    drone.marker = L.marker(drone.currentLatLng, { icon: droneIcon }).addTo(window.map);
+    const checkPolygon = setInterval(() => {
+        if (typeof polygon !== "undefined" && polygon && polygon.getLatLngs().length) {
+            clearInterval(checkPolygon);
+            
+            startFrontendDroneSimulation(drone);
+        }
+    }, 100);
+}
+const start = () => {
+    
+};
 
 document.addEventListener("DOMContentLoaded", function () {
     const start = () => {
@@ -85,9 +243,8 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!drones.drone2.animationFrameId) {
             drones.drone2.animationFrameId = requestAnimationFrame(() => animateDrone("drone2"));
         }
-
-        pollDronePosition("drone1");
-        pollDronePosition("drone2");
+        waitForPolygonThenStart("drone1");
+        waitForPolygonThenStart("drone2");
     };
 
     if (window.map) {
