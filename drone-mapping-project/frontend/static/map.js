@@ -12,39 +12,6 @@ const xIcon = L.divIcon({
     iconSize: [24, 24],
     iconAnchor: [12, 12]
 });
-
-// Convex hull implementation (Andrew's monotone chain algorithm)
-function convexHull(points) {
-    if (points.length <= 1) return points;
-
-    points = points.slice().sort((a, b) => a.lng === b.lng ? a.lat - b.lat : a.lng - b.lng);
-
-    const lower = [];
-    for (const point of points) {
-        while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], point) <= 0) {
-            lower.pop();
-        }
-        lower.push(point);
-    }
-
-    const upper = [];
-    for (let i = points.length - 1; i >= 0; i--) {
-        const point = points[i];
-        while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], point) <= 0) {
-            upper.pop();
-        }
-        upper.push(point);
-    }
-
-    lower.pop();
-    upper.pop();
-    return lower.concat(upper);
-}
-
-function cross(a, b, o) {
-    return (a.lat - o.lat) * (b.lng - o.lng) - (a.lng - o.lng) * (b.lat - o.lat);
-}
-
 // Remove near-duplicate points (by rounding coordinates)
 function filterValidPoints(points) {
     const unique = [];
@@ -61,8 +28,8 @@ function filterValidPoints(points) {
     return unique;
 }
 
-function updateVisuals() {
-    // Remove ALL previous visual layers first
+async function updateVisuals() {
+    // Clear any old lines or previews
     if (tempPolyline) {
         map.removeLayer(tempPolyline);
         tempPolyline = null;
@@ -72,57 +39,60 @@ function updateVisuals() {
         hullPreview = null;
     }
 
-    // Only proceed if we have markers
     if (markers.length === 0) return;
 
-    // Show temp polyline if there are at least 2 points
+    // Show dashed polyline between points
     if (markers.length > 1) {
         tempPolyline = L.polyline(
             markers.map(m => m.getLatLng()), 
-            {color: 'gray', dashArray: '5,5', weight: 2}
+            { color: 'gray', dashArray: '5,5', weight: 2 }
         ).addTo(map);
     }
 
-    // Filter points and compute hull
-    const rawPoints = markers.map(m => m.getLatLng());
-    const validPoints = filterValidPoints(rawPoints);
-    const hullPoints = convexHull(validPoints);
+    // Get points and request hull from backend
+    const rawPoints = markers.map(m =>  m.getLatLng());
 
-    // Show SINGLE convex hull preview
-    if (hullPoints.length >= 3) {
-        hullPreview = L.polygon(hullPoints, {
+    const hull = await ConvexHull(rawPoints);
+
+    if (hull && hull.length >= 3) {
+        console.log('Hull points:', hull);
+        hullPreview = L.polygon(hull, {
             color: '#3388ff',
             weight: 2,
-            fillOpacity: 0.3 // Keep this low for preview
+            fillOpacity: 0.3
         }).addTo(map);
     }
-} 
+}
 
-function updatePolygon() {
-    if (markers.length < 3) {
+async function updatePolygon() {
+    const rawPoints = markers.map(m => m.getLatLng());
+
+    if (rawPoints.length < 3) {
         if (polygon) {
-            polygon.remove();
+            map.removeLayer(polygon);
             polygon = null;
         }
         return;
     }
 
-    const rawPoints = markers.map(m => m.getLatLng());
-    const validPoints = filterValidPoints(rawPoints);
-    const hullPoints = convexHull(validPoints);
-
-    if (polygon) {
-        polygon.setLatLngs(hullPoints);
-    } else {
-        polygon = L.polygon(hullPoints, {
-            color: '#3388ff',
-            weight: 3,
-            fillOpacity: 0.5
-        }).addTo(map);
+    const hull = await convexHull(rawPoints);
+    if (!hull || hull.length < 3) {
+        if (polygon) {
+            map.removeLayer(polygon);
+            polygon = null;
+        }
+        return;
     }
 
-    const coordinates = [...hullPoints, hullPoints[0]].map(p => [p.lat, p.lng]);
-    sendPolygonToRedis(coordinates);
+    if (polygon) {
+        polygon.setLatLngs(hull);
+    } else {
+        polygon = L.polygon(hull, {
+            color: '#3388ff',
+            weight: 3,
+            fillOpacity: 0.3
+        }).addTo(map);
+    }
 }
 
 function clearMap() {
@@ -153,6 +123,7 @@ function clearMap() {
     }).catch(err => console.error('Error clearing polygon:', err));
 }
 
+
 function onMapClick(e) {
     if (resetPolygon) {
         clearMap();
@@ -160,62 +131,24 @@ function onMapClick(e) {
         return;
     }
 
-    // Add the new marker temporarily
-    const newMarker = L.marker(e.latlng, {
+    const marker = L.marker(e.latlng, {
         icon: xIcon,
         draggable: true
     }).addTo(map);
 
-    // Create temporary markers array including the new one
-    const tempMarkers = [...markers, newMarker];
-    const tempPoints = tempMarkers.map(m => m.getLatLng());
-    const validPoints = filterValidPoints(tempPoints);
-    const hullPoints = convexHull(validPoints);
-
-    // Check if the new point is part of the hull
-    const isOnHull = hullPoints.some(p => 
-        p.lat.toFixed(6) === e.latlng.lat.toFixed(6) && 
-        p.lng.toFixed(6) === e.latlng.lng.toFixed(6)
-    );
-
-    if (!isOnHull) {
-        map.removeLayer(newMarker);
-        return; // Don't add the marker if it's not on the hull
-    }
-
-    // If we get here, the point is valid
-    const marker = newMarker;
-    
     marker.on('contextmenu', (e) => {
         e.originalEvent.preventDefault();
         deleteMarker(marker);
     });
 
-    marker.on('dragend', () => {
-        // After dragging, check if the marker is still valid
-        const currentPos = marker.getLatLng();
-        const tempPoints = markers.map(m => m === marker ? currentPos : m.getLatLng());
-        const validPoints = filterValidPoints(tempPoints);
-        const hullPoints = convexHull(validPoints);
-        
-        const isStillValid = hullPoints.some(p => 
-            p.lat.toFixed(6) === currentPos.lat.toFixed(6) && 
-            p.lng.toFixed(6) === currentPos.lng.toFixed(6)
-        );
-        
-        if (!isStillValid) {
-            // Move back to original position
-            marker.setLatLng(e.target._latlng);
-            alert("This position would make the point invalid for the convex hull");
-        } else {
-            updateVisuals();
-            if (polygon) updatePolygon();
-        }
+    marker.on('dragend', async () => {
+        updatePolygon(); // Let backend determine if dragged marker is valid
     });
 
     markers.push(marker);
-    updateVisuals();
+    updatePolygon(); // Try to draw live preview of hull from backend
 }
+
 
 function deleteMarker(marker) {
     map.removeLayer(marker);
@@ -225,56 +158,40 @@ function deleteMarker(marker) {
 
 }
 
-function completePolygon() {
-    if (markers.length < 3) {
-        alert("You need at least 3 points to create a polygon");
-        return false;
+async function completePolygon() {
+    const rawPoints = markers.map(m => m.getLatLng());
+
+    if (rawPoints.length < 3) {
+        alert("Ymewb ou need at least 3 points to form a polygon");
+        return;
     }
 
-    // Get current valid points
-    const rawPoints = markers.map(m => m.getLatLng());
-    const validPoints = filterValidPoints(rawPoints);
-    const hullPoints = convexHull(validPoints);
+    const hull = await convexHull(rawPoints);
+    if (!hull || hull.length < 3) {
+        alert("Invalid convex hull returned from backend.");
+        return;
+    }
 
-    // Remove any markers that aren't part of the final hull
-    markers.forEach(marker => {
-        const latlng = marker.getLatLng();
-        const isInFinalHull = hullPoints.some(p => 
-            p.lat.toFixed(6) === latlng.lat.toFixed(6) && 
-            p.lng.toFixed(6) === latlng.lng.toFixed(6)
-        );
-        
-        if (!isInFinalHull) {
-            deleteMarker(marker);
+    // Remove markers that aren't in the final hull
+    const keySet = new Set(hull.map(p => `${p[0].toFixed(6)},${p[1].toFixed(6)}`));
+    markers = markers.filter(marker => {
+        const { lat, lng } = marker.getLatLng();
+        const key = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+        if (!keySet.has(key)) {
+            map.removeLayer(marker);
+            return false;
         }
+        return true;
     });
 
-    // Proceed with creating the final polygon
-    if (hullPoints.length < 3) {
-        alert("Invalid polygon - could not calculate convex hull");
-        return false;
-    }
-
     if (polygon) polygon.remove();
-    polygon = L.polygon(hullPoints, {
+    polygon = L.polygon(hull, {
         color: '#3388ff',
         weight: 3,
         fillOpacity: 0.5
     }).addTo(map);
 
-    // Clear temporary elements
-    if (tempPolyline) tempPolyline.remove();
-    if (hullPreview) hullPreview.remove();
-
-    // Prepare coordinates
-    const coordinates = hullPoints.map(p => [p.lat, p.lng]);
-    coordinates.push([hullPoints[0].lat, hullPoints[0].lng]);
-
-    // Save to database
-    sendPolygonToRedis(coordinates);
-
     resetPolygon = true;
-    return true;
 }
 
 function clearMarkers() {
@@ -326,6 +243,39 @@ async function sendPolygonToRedis(coordinates) {
     }
 }
 
+// Convex hull implementation (Andrew's monotone chain algorithm)
+function convexHull(points) {
+    if (points.length <= 1) return points;
+
+    points = points.slice().sort((a, b) => a.lng === b.lng ? a.lat - b.lat : a.lng - b.lng);
+
+    const lower = [];
+    for (const point of points) {
+        while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], point) <= 0) {
+            lower.pop();
+        }
+        lower.push(point);
+    }
+
+    const upper = [];
+    for (let i = points.length - 1; i >= 0; i--) {
+        const point = points[i];
+        while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], point) <= 0) {
+            upper.pop();
+        }
+        upper.push(point);
+    }
+
+    lower.pop();
+    upper.pop();
+    return lower.concat(upper);
+}
+
+function cross(a, b, o) {
+    return (a.lat - o.lat) * (b.lng - o.lng) - (a.lng - o.lng) * (b.lat - o.lat);
+}
+
+
 async function deletePolygonFromRedis(coordinates) {
     if (!coordinates || coordinates.length < 3) {
         showSaveFeedback("Invalid polygon - not enough points to delete", true);
@@ -365,17 +315,6 @@ document.addEventListener("DOMContentLoaded", function () {
         attribution: 'Google Satellite'
       }).addTo(map);
 
-    const completeButton = L.control({ position: 'topright' });
-    completeButton.onAdd = function () {
-        const div = L.DomUtil.create('div', 'green-button');
-        div.innerHTML = '<button>Complete Area</button>';
-        div.onclick = function (e) {
-            e.stopPropagation();
-            completePolygon();
-        };
-        return div;
-    };
-    completeButton.addTo(map);
 
     const clearButton = L.control({ position: 'topright' });
     clearButton.onAdd = function () {

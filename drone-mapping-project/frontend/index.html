@@ -11,6 +11,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
      crossorigin=""></script>
+     
     <script src="{{ url_for('static', filename='map.js') }}"></script>
     <script src="{{ url_for('static', filename='drone.js') }}"></script>
 </head>
@@ -25,6 +26,13 @@
         </a>
     </div>
     <div class="map-container">
+        <div class="management-panel">
+            <h2>Drone Management</h2>
+            <button id="add-drone-btn" class="button retro-button">Add Drone</button>
+            <ul id="drone-list">
+                <!-- Drone list will be populated here -->
+            </ul>
+        </div>
         <div id="map"></div>
     </div>
 </body>
