@@ -1,5 +1,6 @@
 let drones = {};
 let totaldrones = 0;
+let manuallyControlledDroneId = null;
 // Function to generate a random color
 function getRandomColor() {
     const letters = '0123456789ABCDEF';
@@ -51,12 +52,21 @@ function updateDroneList() {
     for (const droneId in drones) {
         const drone = drones[droneId];
         const listItem = document.createElement('li');
+        listItem.className = 'drone-list-item'; // Add class for styling
         
         // Get the SVG HTML from the drone's icon
         const svgHtml = drone.icon.options.html;
+        const isControlled = manuallyControlledDroneId === droneId;
+        
         listItem.innerHTML = `
-            <div class="drone-icon">${svgHtml}</div>
-            <button class = "button retro-button" onclick="removeDrone('${droneId}')">Remove</button>
+            <div class="drone-icon-container">${svgHtml}</div>
+            <div class="drone-controls">
+                <button class="button retro-button" onclick="removeDrone('${droneId}')">Remove</button>
+                <button class="button retro-button ${isControlled ? 'active' : ''}" 
+                        onclick="toggleManualControl('${droneId}')">
+                    ${isControlled ? 'Release Control' : 'Control Manually'}
+                </button>
+            </div>
         `;
         droneList.appendChild(listItem);
     }
@@ -132,6 +142,10 @@ function updateDroneMarker(droneId, position) {
 
 function animateDrone(droneId) {
     const drone = drones[droneId];
+    
+    if (manuallyControlledDroneId === droneId) {
+        return;
+    }
 
     if (!drone.currentLatLng || !drone.targetLatLng) {
         drone.animationFrameId = requestAnimationFrame(() => animateDrone(droneId));
@@ -150,6 +164,9 @@ function animateDrone(droneId) {
 }
 
 function startFrontendDroneSimulation(drone) {
+    if (manuallyControlledDroneId === drone.id) {
+        return;
+    }
     const polygonLatLngs = polygon.getLatLngs()[0];
     // Compute centroid of the polygon
     const latLngs = polygonLatLngs.map(p => [p.lat, p.lng]);
@@ -253,6 +270,41 @@ function startFrontendDroneSimulation(drone) {
     flyToPolygon();
 }
 
+
+function toggleManualControl(droneId) {
+    if (manuallyControlledDroneId === droneId) {
+        // Release control
+        manuallyControlledDroneId = null;
+        
+        // Restart automated behavior
+        const drone = drones[droneId];
+        if (drone.animationFrameId) {
+            cancelAnimationFrame(drone.animationFrameId);
+        }
+        startFrontendDroneSimulation(drone);
+    } else {
+        // If another drone is being controlled, release it first
+        if (manuallyControlledDroneId !== null) {
+            toggleManualControl(manuallyControlledDroneId);
+        }
+        
+        // Take control of this drone
+        manuallyControlledDroneId = droneId;
+        const drone = drones[droneId];
+        
+        // Stop automated behavior
+        if (drone.animationFrameId) {
+            cancelAnimationFrame(drone.animationFrameId);
+            drone.animationFrameId = null;
+        }
+        
+        // Freeze the drone in place
+        drone.targetLatLng = drone.currentLatLng;
+    }
+    
+    updateDroneList();
+}
+
 function waitForPolygonThenStart(droneId) {
     const drone = drones[droneId];
     drone.currentLatLng = L.latLng(drone.currentLatLng); // Start slightly outside polygon
@@ -284,4 +336,47 @@ const start = () => {
 // Event listener for the add drone button
 document.addEventListener("DOMContentLoaded", function () {
     document.getElementById('add-drone-btn').addEventListener('click', addDrone);
+});
+
+// Add this to your initialization code (DOMContentLoaded event)
+document.addEventListener('keydown', (e) => {
+    if (manuallyControlledDroneId !== null) {
+        const drone = drones[manuallyControlledDroneId];
+        if (!drone) return;
+        
+        const step = 0.0005; // Adjust this value for movement speed
+        let newLat = drone.currentLatLng.lat;
+        let newLng = drone.currentLatLng.lng;
+        
+        switch (e.key.toLowerCase()) {
+            case 'w':
+                newLat += step;
+                break;
+            case 's':
+                newLat -= step;
+                break;
+            case 'a':
+                newLng -= step;
+                break;
+            case 'd':
+                newLng += step;
+                break;
+            default:
+                return; // Ignore other keys
+        }
+        
+        // Update drone position
+        drone.currentLatLng = L.latLng(newLat, newLng);
+        drone.marker.setLatLng(drone.currentLatLng);
+        
+        // Persist position to server
+        fetch(`http://localhost:5000/api/drone/${drone.id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                lat: drone.currentLatLng.lat,
+                lng: drone.currentLatLng.lng
+            })
+        }).catch(console.error);
+    }
 });
