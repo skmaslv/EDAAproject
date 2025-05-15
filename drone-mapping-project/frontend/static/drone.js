@@ -9,7 +9,58 @@ function getRandomColor() {
     }
     return color;
 }
+// Function to load drones from localStorage
+function loadDrones() {
+    const savedDrones = localStorage.getItem('drones');
+    if (savedDrones) {
+        const parsedDrones = JSON.parse(savedDrones);
+        drones = parsedDrones.drones;
+        totaldrones = parsedDrones.totaldrones;
+        
+        // Recreate the icon objects (they can't be stored in localStorage)
+        for (const droneId in drones) {
+            const drone = drones[droneId];
+            drone.icon = L.divIcon({
+                html: drone.icon.html,
+                iconSize: drone.icon.iconSize,
+                iconAnchor: drone.icon.iconAnchor
+            });
+            drone.currentLatLng = L.latLng(drone.currentLatLng.lat, drone.currentLatLng.lng);
+            if (drone.targetLatLng) {
+                drone.targetLatLng = L.latLng(drone.targetLatLng.lat, drone.targetLatLng.lng);
+            }
+            drone.animationFrameId = null;
+            drone.marker = null;
+        }
+        
+        updateDroneList();
+        start();
+    }
+}
 
+// Function to save drones to localStorage
+function saveDrones() {
+    const dronesToSave = {
+        drones: {},
+        totaldrones: totaldrones
+    };
+    
+    for (const droneId in drones) {
+        const drone = drones[droneId];
+        dronesToSave.drones[droneId] = {
+            id: drone.id,
+            currentLatLng: drone.currentLatLng,
+            targetLatLng: drone.targetLatLng,
+            icon: {
+                html: drone.icon.options.html,
+                iconSize: drone.icon.options.iconSize,
+                iconAnchor: drone.icon.options.iconAnchor
+            }
+        };
+    }
+    
+    localStorage.setItem('drones', JSON.stringify(dronesToSave));
+}
 function addDrone() {
     const droneId = totaldrones++;
     drones[droneId] = {
@@ -27,6 +78,7 @@ function addDrone() {
     };
     updateDroneList();
     start();
+    saveDrones(); 
     return droneId;
 }
 // Function to remove a drone
@@ -35,6 +87,7 @@ function removeDrone(droneId) {
         map.removeLayer(drones[droneId].marker);
         delete drones[droneId];
         updateDroneList();
+        saveDrones(); 
     }
 }
 // Function to generate random offset (in degrees)
@@ -114,21 +167,6 @@ async function getDronePosition(droneId) {
     }
 }
 
-function updateDroneMarker(droneId, position) {
-    if (!position) return;
-
-    const latLng = L.latLng(position[0], position[1]);
-    const drone = drones[droneId];
-
-    if (!drone.marker) {
-        // Create a new marker if it doesn't exist
-        drone.marker = L.marker(latLng, { icon: drone.icon }).addTo(window.map);
-        drone.currentLatLng = latLng;
-    }
-
-    // Update the target position
-    drone.targetLatLng = latLng;
-}
 
 function animateDrone(droneId) {
     const drone = drones[droneId];
@@ -145,6 +183,7 @@ function animateDrone(droneId) {
 
     drone.currentLatLng = L.latLng(lat, lng);
     drone.marker.setLatLng(drone.currentLatLng);
+    saveDrones(); // Save the drone's position to localStorage
 
     drone.animationFrameId = requestAnimationFrame(() => animateDrone(droneId));
 }
@@ -284,4 +323,5 @@ const start = () => {
 // Event listener for the add drone button
 document.addEventListener("DOMContentLoaded", function () {
     document.getElementById('add-drone-btn').addEventListener('click', addDrone);
+    loadDrones();
 });
