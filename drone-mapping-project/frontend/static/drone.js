@@ -33,6 +33,7 @@ function getNextColor() {
 // Function to load drones from localStorage
 function loadDrones() {
     const savedDrones = localStorage.getItem('drones');
+    assignedColors.clear(); // Clear the set of assigned colors
     if (savedDrones) {
         const parsedDrones = JSON.parse(savedDrones);
         drones = parsedDrones.drones;
@@ -52,6 +53,7 @@ function loadDrones() {
             }
             drone.animationFrameId = null;
             drone.marker = null;
+            assignedColors.add(drone.color); // Add the color to the set
         }
         
         updateDroneList();
@@ -76,12 +78,15 @@ function saveDrones() {
                 html: drone.icon.options.html,
                 iconSize: drone.icon.options.iconSize,
                 iconAnchor: drone.icon.options.iconAnchor
-            }
+            },
+            color: drone.icon.options.html.match(/fill="([^"]+)"/)[1] // Extract color from SVG
         };
     }
     
     localStorage.setItem('drones', JSON.stringify(dronesToSave));
+    console.log("Drones saved to localStorage:", dronesToSave);
 }
+
 function addDrone() {
     const droneId = totaldrones++;
     drones[droneId] = {
@@ -217,7 +222,7 @@ function animateDrone(droneId) {
 
     drone.currentLatLng = L.latLng(lat, lng);
     drone.marker.setLatLng(drone.currentLatLng);
-    saveDrones(); // Save the drone's position to localStorage
+    saveDrones();  // Save the drone's position to localStorage
 
     drone.animationFrameId = requestAnimationFrame(() => animateDrone(droneId));
 }
@@ -308,18 +313,6 @@ function startFrontendDroneSimulation(drone) {
                 }
             }
 
-            if (!drone._lastPersist || Date.now() - drone._lastPersist > 2000) {
-                drone._lastPersist = Date.now();
-                fetch(`http://localhost:5000/api/drone/${drone.id}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        lat: drone.currentLatLng.lat,
-                        lng: drone.currentLatLng.lng
-                    })
-                }).catch(console.error);
-            }
-
             drone.animationFrameId = requestAnimationFrame(move);
         }
 
@@ -377,6 +370,12 @@ function waitForPolygonThenStart(droneId) {
     }, 100);
 }
 
+function startPositionSync(intervalMs = 2000) { // adjust intervalMs as needed
+    setInterval(() => {
+        saveDrones();
+    }, intervalMs);
+}
+
 const start = () => {
     for (const droneId in drones) {
         const drone = drones[droneId]; // Access the actual drone object
@@ -396,6 +395,8 @@ const start = () => {
 document.addEventListener("DOMContentLoaded", function () {
     document.getElementById('add-drone-btn').addEventListener('click', addDrone);
     loadDrones();
+    startPositionSync(); // Starts periodic sync
+
     // Add this to your initialization code (DOMContentLoaded event)
     document.addEventListener('keydown', (e) => {
       if (manuallyControlledDroneId !== null) {
@@ -427,59 +428,7 @@ document.addEventListener("DOMContentLoaded", function () {
           drone.currentLatLng = L.latLng(newLat, newLng);
           drone.marker.setLatLng(drone.currentLatLng);
 
-          // Persist position to server
-          fetch(`http://localhost:5000/api/drone/${drone.id}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                  lat: drone.currentLatLng.lat,
-                  lng: drone.currentLatLng.lng
-              })
-          }).catch(console.error);
+          saveDrones(); // Save the drone's position to localStorage
       }
   });
-
-
-// Add this to your initialization code (DOMContentLoaded event)
-document.addEventListener('keydown', (e) => {
-    if (manuallyControlledDroneId !== null) {
-        const drone = drones[manuallyControlledDroneId];
-        if (!drone) return;
-        
-        const step = 0.0005; // Adjust this value for movement speed
-        let newLat = drone.currentLatLng.lat;
-        let newLng = drone.currentLatLng.lng;
-        
-        switch (e.key.toLowerCase()) {
-            case 'w':
-                newLat += step;
-                break;
-            case 's':
-                newLat -= step;
-                break;
-            case 'a':
-                newLng -= step;
-                break;
-            case 'd':
-                newLng += step;
-                break;
-            default:
-                return; // Ignore other keys
-        }
-        
-        // Update drone position
-        drone.currentLatLng = L.latLng(newLat, newLng);
-        drone.marker.setLatLng(drone.currentLatLng);
-        
-        // Persist position to server
-        fetch(`http://localhost:5000/api/drone/${drone.id}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                lat: drone.currentLatLng.lat,
-                lng: drone.currentLatLng.lng
-            })
-        }).catch(console.error);
-    }
-});
-});
+    });

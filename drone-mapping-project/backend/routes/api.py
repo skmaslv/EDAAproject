@@ -26,14 +26,13 @@ def get_area():
 
 @api_routes.route('/api/drone/<drone_id>', methods=['POST'])
 def set_drone_position(drone_id):
-    data = request.get_json()
-    lat, lng = data.get('lat'), data.get('lng')
-    if lat is None or lng is None:
-        return jsonify({"error": "Missing lat or lng"}), 400
-
     redis_client = get_redis()
-    redis_client.set(f"drone:{drone_id}:position", json.dumps([lat, lng]))
-    return jsonify({"message": "Position updated"})
+    data = request.get_json()
+    position = data.get("position")
+    if not position or len(position) != 2:
+        return jsonify({"error": "Invalid position format"}), 400
+    redis_client.set(f"drone:{drone_id}:position", json.dumps(position))
+    return jsonify({"status": "success"}), 200
 
 @api_routes.route('/api/drone/<drone_id>', methods=['GET'])
 def get_drone_position(drone_id):

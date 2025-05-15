@@ -12,21 +12,7 @@ const xIcon = L.divIcon({
     iconSize: [24, 24],
     iconAnchor: [12, 12]
 });
-// Remove near-duplicate points (by rounding coordinates)
-function filterValidPoints(points) {
-    const unique = [];
-    const seen = new Set();
 
-    for (const p of points) {
-        const key = `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`;
-        if (!seen.has(key)) {
-            seen.add(key);
-            unique.push(p);
-        }
-    }
-
-    return unique;
-}
 
 async function updateVisuals() {
     console.log('Updating visuals with markers:', markers);
@@ -62,6 +48,7 @@ async function updateVisuals() {
             weight: 2,
             fillOpacity: 0.3
         }).addTo(map);
+        invisibleMarkers();
     }
     
 }
@@ -82,6 +69,7 @@ async function loadPolygonsFromRedis() {
 
         const result = await response.json();
         console.log('Loaded polygons:', result);
+
         if (result.polygons && result.polygons.length > 0) {
             result.polygons.forEach(polygonData => {
                 polygon = L.polygon(polygonData, {
@@ -89,14 +77,33 @@ async function loadPolygonsFromRedis() {
                     weight: 3,
                     fillOpacity: 0.5
                 }).addTo(map);
+
+                // Create hidden markers from polygon points
+                clearMarkers();
+                polygonData.forEach(coord => {
+                    const latlng = L.latLng(coord[0], coord[1]);
+                    const marker = L.marker(latlng, {
+                        icon: xIcon,
+                        draggable: false,
+                        opacity: 0 // Start as invisible
+                    }).addTo(map);
+
+                    marker.on('contextmenu', (e) => {
+                        e.originalEvent.preventDefault();
+                        deleteMarker(marker);
+                    });
+
+                    markers.push(marker);
+                });
             });
         }
 
     } catch (error) {
         console.error('Load error:', error);
-        showSaveFeedback('Load failed: ' + error.message, true);
+        //showSaveFeedback('Load failed: ' + error.message, true);
     }
 }
+
 
 async function updatePolygon() {
     console.log('Updating polygon with markers:', markers);
@@ -121,12 +128,15 @@ async function updatePolygon() {
 
     if (polygon) {
         polygon.setLatLngs(hull);
+        invisibleMarkers();
     } else {
+        // Create a new polygon if it doesn't exist
         polygon = L.polygon(hull, {
             color: '#3388ff',
             weight: 3,
             fillOpacity: 0.3
         }).addTo(map);
+        invisibleMarkers();
     }
     const formattedHull = hull.map(p => [p.lat, p.lng]);
     console.log('Formatted hull:', formattedHull);
@@ -198,47 +208,11 @@ function deleteMarker(marker) {
 
 }
 
-async function completePolygon() {
-    console.log('Completing polygon with points:', markers);
-    const rawPoints = markers.map(m => m.getLatLng());
-
-    if (rawPoints.length < 3) {
-        alert("You need at least 3 points to form a polygon");
-        return;
-    }
-
-    const hull = await convexHull(rawPoints);
-    if (!hull || hull.length < 3) {
-        alert("Invalid convex hull returned from backend.");
-        return;
-    }
-
-    // Remove markers that aren't in the final hull
-    const keySet = new Set(hull.map(p => `${p[0].toFixed(6)},${p[1].toFixed(6)}`));
-    markers = markers.filter(marker => {
-        const { lat, lng } = marker.getLatLng();
-        const key = `${lat.toFixed(6)},${lng.toFixed(6)}`;
-        if (!keySet.has(key)) {
-            map.removeLayer(marker);
-            return false;
-        }
-        return true;
+function invisibleMarkers() {
+    markers.forEach(marker => {
+        marker.setOpacity(0);
     });
-
-    if (polygon) polygon.remove();
-    polygon = L.polygon(hull, {
-        color: '#3388ff',
-        weight: 3,
-        fillOpacity: 0.5
-    }).addTo(map);
-
-    
-    // Save the polygon to Redis
-    await sendPolygonToRedis(hull);
-
-    resetPolygon = true;
 }
-
 
 function clearMarkers() {
     markers.forEach(marker => map.removeLayer(marker));
@@ -261,7 +235,7 @@ async function sendPolygonToRedis(coordinates) {
     console.log('Sending polygon to Redis:', coordinates);
     // Enhanced validation
     if (!coordinates || coordinates.length < 3) {
-        showSaveFeedback("Invalid polygon - not enough points", true);
+        //showSaveFeedback("Invalid polygon - not enough points", true);
         return;
     }
 
@@ -281,12 +255,12 @@ async function sendPolygonToRedis(coordinates) {
         }
 
         const result = await response.json();
-        showSaveFeedback(result.message || 'Area saved successfully!');
+        //showSaveFeedback(result.message || 'Area saved successfully!');
         console.log('Saved hull coordinates:', coordinates);
 
     } catch (error) {
         console.error('Save error:', error);
-        showSaveFeedback('Save failed: ' + error.message, true);
+        //showSaveFeedback('Save failed: ' + error.message, true);
     }
 }
 
@@ -325,7 +299,7 @@ function cross(a, b, o) {
 
 async function deletePolygonFromRedis(coordinates) {
     if (!coordinates || coordinates.length < 3) {
-        showSaveFeedback("Invalid polygon - not enough points to delete", true);
+        //showSaveFeedback("Invalid polygon - not enough points to delete", true);
         return;
     }
 
@@ -345,12 +319,12 @@ async function deletePolygonFromRedis(coordinates) {
         }
 
         const result = await response.json();
-        showSaveFeedback(result.message || 'Area deleted successfully!');
+        //showSaveFeedback(result.message || 'Area deleted successfully!');
         console.log('Deleted polygon coordinates:', coordinates);
 
     } catch (error) {
         console.error('Delete error:', error);
-        showSaveFeedback('Delete failed: ' + error.message, true);
+        //showSaveFeedback('Delete failed: ' + error.message, true);
     }
 }
 
