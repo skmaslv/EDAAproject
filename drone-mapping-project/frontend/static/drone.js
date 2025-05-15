@@ -336,7 +336,6 @@ const start = () => {
 // Event listener for the add drone button
 document.addEventListener("DOMContentLoaded", function () {
     document.getElementById('add-drone-btn').addEventListener('click', addDrone);
-});
 
 // Add this to your initialization code (DOMContentLoaded event)
 document.addEventListener('keydown', (e) => {
@@ -379,4 +378,5 @@ document.addEventListener('keydown', (e) => {
             })
         }).catch(console.error);
     }
+});
 });
