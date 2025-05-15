@@ -177,18 +177,14 @@ function onMapClick(e) {
 
     const marker = L.marker(e.latlng, {
         icon: xIcon,
-        draggable: true
+        draggable: false
     }).addTo(map);
 
     marker.on('contextmenu', (e) => {
         e.originalEvent.preventDefault();
         deleteMarker(marker);
     });
-
-    marker.on('dragend', async () => {
-        updatePolygon(); // Let backend determine if dragged marker is valid
-    });
-
+    
     markers.push(marker);
     updatePolygon(); // Try to draw live preview of hull from backend
 }
