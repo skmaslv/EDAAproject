@@ -50,7 +50,7 @@ def handle_polygon():
     try:
         # Validate input
         if 'coordinates' not in data or len(data['coordinates']) < 3:
-            return jsonify({"error": "At least 3 points required"}), 400
+            return jsonify({"error": len(data['coordinates'])}), 400
         
         # Apply convex hull algorithm
         hull_points = apply_convex_hull(data['coordinates'])
@@ -77,3 +77,31 @@ def handle_polygon():
     
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@api_routes.route('/api/polygons', methods=['GET'])
+def get_polygons():
+    redis_client = get_redis()
+    try:
+        keys = redis_client.keys('polygon:*')
+        polygons = []
+
+        for key in keys:
+            data = redis_client.get(key)
+            if data:
+                polygon = json.loads(data)
+                polygons.append(polygon)
+
+        return jsonify({'polygons': polygons}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+@api_routes.route('/api/polygons', methods=['DELETE'])
+def delete_polygon():
+    redis_client = get_redis()
+
+    # Delete all keys matching "polygon:*"
+    for key in redis_client.scan_iter("polygon:*"):
+        redis_client.delete(key)
+
+    redis_client.publish("polygon_updates", "deleted")
+    return jsonify({"message": "Polygon(s) deleted successfully."}), 200

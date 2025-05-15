@@ -29,6 +29,7 @@ function filterValidPoints(points) {
 }
 
 async function updateVisuals() {
+    console.log('Updating visuals with markers:', markers);
     // Clear any old lines or previews
     if (tempPolyline) {
         map.removeLayer(tempPolyline);
@@ -62,9 +63,43 @@ async function updateVisuals() {
             fillOpacity: 0.3
         }).addTo(map);
     }
+    
+}
+
+async function loadPolygonsFromRedis() {
+    console.log('Loading polygons from Redis');
+    try {
+        const response = await fetch(`${API_URL}/polygons`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(await response.text());
+        }
+
+        const result = await response.json();
+        console.log('Loaded polygons:', result);
+        if (result.polygons && result.polygons.length > 0) {
+            result.polygons.forEach(polygonData => {
+                polygon = L.polygon(polygonData, {
+                    color: '#3388ff',
+                    weight: 3,
+                    fillOpacity: 0.5
+                }).addTo(map);
+            });
+        }
+
+    } catch (error) {
+        console.error('Load error:', error);
+        showSaveFeedback('Load failed: ' + error.message, true);
+    }
 }
 
 async function updatePolygon() {
+    console.log('Updating polygon with markers:', markers);
     const rawPoints = markers.map(m => m.getLatLng());
 
     if (rawPoints.length < 3) {
@@ -93,18 +128,28 @@ async function updatePolygon() {
             fillOpacity: 0.3
         }).addTo(map);
     }
+    const formattedHull = hull.map(p => [p.lat, p.lng]);
+    console.log('Formatted hull:', formattedHull);
+    await sendPolygonToRedis(formattedHull);
+    
 }
 
 function clearMap() {
     // Remove all markers
+    console.log('Clearing all markers');
     markers.forEach(marker => map.removeLayer(marker));
     markers = [];
-    
-    // Remove all visual elements
+
+    // Remove visuals
     if (polygon) {
+        const coords = polygon.getLatLngs()[0].map(p => [p.lat, p.lng]);
         polygon.remove();
         polygon = null;
+
+        // 🔥 Actually delete from backend
+        deletePolygonFromRedis(coords); 
     }
+
     if (tempPolyline) {
         tempPolyline.remove();
         tempPolyline = null;
@@ -113,15 +158,14 @@ function clearMap() {
         hullPreview.remove();
         hullPreview = null;
     }
-    
-    // Reset state
+
     resetPolygon = false;
-    
-    // Clear from backend too
-    fetch(`${API_URL}/polygons`, {
-        method: 'DELETE' // You'll need to implement this endpoint
-    }).catch(err => console.error('Error clearing polygon:', err));
+    updatePolygon();
+    updateVisuals();
+    loadPolygonsFromRedis();
+
 }
+
 
 
 function onMapClick(e) {
@@ -155,10 +199,11 @@ function deleteMarker(marker) {
 }
 
 async function completePolygon() {
+    console.log('Completing polygon with points:', markers);
     const rawPoints = markers.map(m => m.getLatLng());
 
     if (rawPoints.length < 3) {
-        alert("Ymewb ou need at least 3 points to form a polygon");
+        alert("You need at least 3 points to form a polygon");
         return;
     }
 
@@ -187,8 +232,13 @@ async function completePolygon() {
         fillOpacity: 0.5
     }).addTo(map);
 
+    
+    // Save the polygon to Redis
+    await sendPolygonToRedis(hull);
+
     resetPolygon = true;
 }
+
 
 function clearMarkers() {
     markers.forEach(marker => map.removeLayer(marker));
@@ -208,8 +258,9 @@ function showSaveFeedback(message, isError = false) {
 }
 
 async function sendPolygonToRedis(coordinates) {
+    console.log('Sending polygon to Redis:', coordinates);
     // Enhanced validation
-    if (!coordinates || coordinates.length < 4) {
+    if (!coordinates || coordinates.length < 3) {
         showSaveFeedback("Invalid polygon - not enough points", true);
         return;
     }
@@ -221,7 +272,7 @@ async function sendPolygonToRedis(coordinates) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({ 
-                coordinates: coordinates.slice(0, -1) // Remove closing point for backend processing
+                coordinates: coordinates // Remove closing point for backend processing
             })
         });
 
@@ -309,8 +360,10 @@ document.addEventListener("DOMContentLoaded", function () {
         maxZoom: 20,
         subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
         attribution: 'Google Satellite'
-      }).addTo(map);
+    }).addTo(map);
 
+    // Load polygons from Redis when the page loads
+    loadPolygonsFromRedis();
 
     const clearButton = L.control({ position: 'topright' });
     clearButton.onAdd = function () {
@@ -325,4 +378,4 @@ document.addEventListener("DOMContentLoaded", function () {
     clearButton.addTo(map);
 
     map.on('click', onMapClick);
-}); 
+});
