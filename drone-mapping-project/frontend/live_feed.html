@@ -1,37 +1,151 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Drone Mapping</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        crossorigin=""
-    />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Drone Mapping</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <style>
+    .video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    padding: 1rem;
+    }
+
+    .video-tile {
+    display: flex;
+    flex-direction: column; /* 🔥 makes label go below video */
+    align-items: center;
+    text-align: center;
+    }
+
+    .video-wrapper {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    background: black;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    }
+
+    .video-wrapper img,
+    .video-wrapper video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    }
+
+    .drone-label {
+    margin-top: 0.5rem;
+    font-weight: bold;
+    font-family: sans-serif;
+    color: #333;
+    }
+
+  </style>
 </head>
-
 <body>
-    <div class="header">
-        <a href="http://localhost:5000" class="back-button">
-            <button class="button retro-button">Back</button>
-        </a>
-        <div class="control-buttons">
-            <button class="button retro-button stream-button">▶️ Start Stream</button>
-            <button class="button retro-button stop-button" disabled>⏹️ Stop Stream</button>
-        </div>
+  <div class="header">
+    <a href="http://localhost:5000" class="back-button">
+      <button class="button retro-button">Back</button>
+    </a>
+    <div class="control-buttons">
+      <button class="button retro-button stream-button">▶️ Start Stream</button>
+      <button class="button retro-button stop-button" disabled>⏹️ Stop Stream</button>
     </div>
+  </div>
 
-    <div class="video-container">
-        <img id="video" alt="Live feed will appear here"/>
-    </div>
+  <div id="videoGrid" class="video-grid responsive"></div>
 
-    <!-- Scripts placed at the end of body for proper loading -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-        crossorigin=""
-    ></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
-    <script src="{{ url_for('static', filename='video.js') }}"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+  <script>
+  const socket = io();
+  const videoGrid = document.getElementById('videoGrid');
+
+  // Get number of drones from localStorage
+  let dronesObj = {};
+    let n = 1; // default fallback
+
+    try {
+    const stored = localStorage.getItem('drones');
+    if (stored) {
+        const parsed = JSON.parse(stored);
+        dronesObj = parsed.drones || {};
+        n = Object.keys(dronesObj).length || 1;
+    }
+    } catch (e) {
+    console.error("Failed to parse drones from localStorage:", e);
+    }
+
+  const exampleVideoUrl = "static/images/footage.mp4"; // Example video URL
+
+  const numberWords = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
+
+    for (let i = 0; i < n; i++) {
+    const tile = document.createElement('div');
+    tile.classList.add('video-tile');
+
+    const contentContainer = document.createElement('div');
+    contentContainer.classList.add('video-wrapper');
+
+    let label = `Drone ${numberWords[i] || (i + 1)}`;
+
+    if (i === 0) {
+        const img = document.createElement('img');
+        img.id = 'video';
+        img.alt = 'Live feed will appear here';
+        contentContainer.appendChild(img);
+    } else {
+        const vid = document.createElement('video');
+        vid.src = exampleVideoUrl;
+        vid.controls = true;
+        vid.autoplay = true;
+        vid.loop = true;
+        vid.muted = true;
+        contentContainer.appendChild(vid);
+    }
+
+    const labelDiv = document.createElement('div');
+    labelDiv.classList.add('drone-label');
+    labelDiv.textContent = label;
+
+    tile.appendChild(contentContainer);
+    tile.appendChild(labelDiv);
+    videoGrid.appendChild(tile);
+    }
+
+
+  document.addEventListener('DOMContentLoaded', () => {
+    startStream();
+  });
+
+  socket.on('video_frame', (data) => {
+    const video = document.getElementById('video');
+    if (video) {
+      video.src = 'data:image/jpeg;base64,' + data.image;
+    }
+  });
+
+  function startStream() {
+    socket.emit('start_stream');
+    document.querySelector('.stream-button').disabled = true;
+    document.querySelector('.stop-button').disabled = false;
+  }
+
+  function stopStream() {
+    socket.emit('stop_stream');
+    document.querySelector('.stream-button').disabled = false;
+    document.querySelector('.stop-button').disabled = true;
+  }
+</script>
+
 </body>
 </html>

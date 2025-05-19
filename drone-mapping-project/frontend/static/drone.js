@@ -403,7 +403,7 @@ document.addEventListener("DOMContentLoaded", function () {
           const drone = drones[manuallyControlledDroneId];
           if (!drone) return;
 
-          const step = 0.0005; // Adjust this value for movement speed
+          const step = 0.0008; // Adjust this value for movement speed
           let newLat = drone.currentLatLng.lat;
           let newLng = drone.currentLatLng.lng;
 

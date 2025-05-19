@@ -65,7 +65,7 @@ html, body {
   height: 20px;
   margin-right: 10px;
 }
-.video-container {
+/* .video-container {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -81,7 +81,7 @@ html, body {
     border: 2px solid #333;
     border-radius: 8px;
     background-color: #000;
-}
+} */
 
 /* Map container with padding */
 .map-container {
