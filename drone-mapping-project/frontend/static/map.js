@@ -345,6 +345,17 @@ document.addEventListener("DOMContentLoaded", function () {
         div.innerHTML = '<button>Clear Points</button>';
         div.onclick = function (e) {
             e.stopPropagation();
+            
+            // First remove all drones by triggering their remove buttons
+            if (window.drones) {
+                Object.keys(window.drones).forEach(droneId => {
+                    if (window.removeDrone) {
+                        window.removeDrone(droneId);
+                    }
+                });
+            }
+            
+            // Then clear the polygon points
             clearMap();
         };
         return div;
