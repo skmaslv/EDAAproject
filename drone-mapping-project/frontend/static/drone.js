@@ -93,6 +93,10 @@ function addDrone() {
         alert("You need to create a polygon first");
         return null;
     }
+    
+    //hererererererererererer
+    const currentlyControlled = manuallyControlledDroneId;
+
 
     const droneId = totaldrones++;
     drones[droneId] = {
@@ -107,6 +111,11 @@ function addDrone() {
             iconAnchor: [15, 15]
         })
     };
+    
+    if (currentlyControlled !== null) {
+        manuallyControlledDroneId = currentlyControlled;
+    }
+
     updateDroneList();
     start();
     saveDrones(); 
@@ -384,19 +393,21 @@ function startPositionSync(intervalMs = 2000) { // adjust intervalMs as needed
 
 const start = () => {
     for (const droneId in drones) {
-        const drone = drones[droneId]; // Access the actual drone object
-        console.log(`Starting ${droneId}`); // Logs the drone ID (e.g., "drone1")
-        console.log(`Starting ${drone.id}`); // Logs the drone's `id` property
+        const drone = drones[droneId];
+        
+        // Skip if this is the manually controlled drone
+        if (manuallyControlledDroneId === droneId) continue;
 
         if (drone.animationFrameId) {
             cancelAnimationFrame(drone.animationFrameId);
         }
         if (drone.marker) {
-            drone.marker.remove(); // Remove the old marker if it exists
+            drone.marker.remove();
         }
-        waitForPolygonThenStart(droneId); // Pass the drone ID to the function
+        waitForPolygonThenStart(droneId);
     }
 };
+
 // Event listener for the add drone button
 document.addEventListener("DOMContentLoaded", function () {
     document.getElementById('add-drone-btn').addEventListener('click', function() {
