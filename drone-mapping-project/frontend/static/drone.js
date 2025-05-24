@@ -87,10 +87,27 @@ function saveDrones() {
     console.log("Drones saved to localStorage:", dronesToSave);
 }
 
+function showNotification(title, message) {
+    const notification = document.createElement('div');
+    notification.className = 'elegant-notification';
+    notification.innerHTML = `
+        <div class="notification-header">${title}</div>
+        <div class="notification-body">${message}</div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Show for 5 seconds (5000ms) before fading out
+    setTimeout(() => {
+        notification.classList.add('fade-out');
+        // Remove after fade completes
+        setTimeout(() => notification.remove(), 500);
+    }, 7000); 
+}
+
 function addDrone() {
-    // Check if polygon exists and has at least 3 points
     if (!polygon || !polygon.getLatLngs() || polygon.getLatLngs()[0].length < 3) {
-        alert("You need to create a polygon first");
+        showNotification("Please create a flight area first", "Draw a polygon on the map to define where drones can fly");
         return null;
     }
     
@@ -288,7 +305,6 @@ function startFrontendDroneSimulation(drone) {
         drone.targetLatLng = chooseNewTarget();
 
         function move() {
-            // ✅ Check for polygon deletion
             if (!polygon || !polygon.getLatLngs().length) {
                 console.log(`Polygon deleted. ${drone.id} returning to standby.`);
                 if (drone.animationFrameId) {
