@@ -5,49 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Drone Mapping</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <style>
     .video-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 16px;
-    padding: 1rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+      padding: 1rem;
     }
-
     .video-tile {
-    display: flex;
-    flex-direction: column; /* 🔥 makes label go below video */
-    align-items: center;
-    text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
     }
-
     .video-wrapper {
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    overflow: hidden;
-    background: black;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      background: black;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-
-    .video-wrapper img,
-    .video-wrapper video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
+    .video-wrapper canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
     }
-
     .drone-label {
-    margin-top: 0.5rem;
-    font-weight: bold;
-    font-family: sans-serif;
-    color: #333;
+      margin-top: 0.5rem;
+      font-weight: bold;
+      color: #333;
     }
-
   </style>
 </head>
 <body>
@@ -61,91 +52,95 @@
     </div>
   </div>
 
-  <div id="videoGrid" class="video-grid responsive"></div>
+  <div id="videoGrid" class="video-grid"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
   <script>
-  const socket = io();
-  const videoGrid = document.getElementById('videoGrid');
+    const socket = io();
+    const videoGrid = document.getElementById('videoGrid');
 
-  // Get number of drones from localStorage
-  let dronesObj = {};
+    let dronesObj = {};
     let n = 1; // default fallback
+    const canvases = {};
 
     try {
-    const stored = localStorage.getItem('drones');
-    if (stored) {
+      const stored = localStorage.getItem('drones');
+      if (stored) {
         const parsed = JSON.parse(stored);
         dronesObj = parsed.drones || {};
         n = Object.keys(dronesObj).length || 1;
-    }
+      }
     } catch (e) {
-    console.error("Failed to parse drones from localStorage:", e);
+      console.error("Failed to parse drones from localStorage:", e);
     }
 
-  const exampleVideoUrl = "static/images/footage.mp4"; // Example video URL
+    const exampleVideoUrl = "static/images/footage.mp4";
 
-  const numberWords = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
+    const numberWords = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
 
     for (let i = 0; i < n; i++) {
-    const tile = document.createElement('div');
-    tile.classList.add('video-tile');
+      const tile = document.createElement('div');
+      tile.classList.add('video-tile');
 
-    const contentContainer = document.createElement('div');
-    contentContainer.classList.add('video-wrapper');
+      const contentContainer = document.createElement('div');
+      contentContainer.classList.add('video-wrapper');
 
-    let label = `Drone ${numberWords[i] || (i + 1)}`;
+      if (i === 0) {
+    const canvas = document.createElement('canvas');
+    canvas.id = `canvas-${i}`;
+    canvas.width = 1280;
+    canvas.height = 720;
+    contentContainer.appendChild(canvas);
+    canvases[`canvas-${i}`] = canvas;
+  } else {
+    const video = document.createElement('video');
+    video.src = exampleVideoUrl;
+    video.autoplay = true;
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.style.width = "100%";
+    video.style.height = "100%";
+    contentContainer.appendChild(video);
+}
 
-    if (i === 0) {
-        const img = document.createElement('img');
-        img.id = 'video';
-        img.alt = 'Live feed will appear here';
-        contentContainer.appendChild(img);
-    } else {
-        const vid = document.createElement('video');
-        vid.src = exampleVideoUrl;
-        vid.controls = true;
-        vid.autoplay = true;
-        vid.loop = true;
-        vid.muted = true;
-        contentContainer.appendChild(vid);
+
+      const labelDiv = document.createElement('div');
+      labelDiv.classList.add('drone-label');
+      labelDiv.textContent = `Drone ${numberWords[i] || (i + 1)}`;
+
+      tile.appendChild(contentContainer);
+      tile.appendChild(labelDiv);
+      videoGrid.appendChild(tile);
     }
 
-    const labelDiv = document.createElement('div');
-    labelDiv.classList.add('drone-label');
-    labelDiv.textContent = label;
+    document.addEventListener('DOMContentLoaded', () => {
+      startStream();
+    });
 
-    tile.appendChild(contentContainer);
-    tile.appendChild(labelDiv);
-    videoGrid.appendChild(tile);
+    socket.on('video_frame', (data) => {
+      const canvas = canvases['canvas-0'];  // Update this if handling multiple streams
+      if (canvas) {
+        const context = canvas.getContext('2d');
+        const img = new Image();
+        img.onload = () => {
+          context.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
+        img.src = 'data:image/jpeg;base64,' + data.image;
+      }
+    });
+
+    function startStream() {
+      socket.emit('start_stream');
+      document.querySelector('.stream-button').disabled = true;
+      document.querySelector('.stop-button').disabled = false;
     }
 
-
-  document.addEventListener('DOMContentLoaded', () => {
-    startStream();
-  });
-
-  socket.on('video_frame', (data) => {
-    const video = document.getElementById('video');
-    if (video) {
-      video.src = 'data:image/jpeg;base64,' + data.image;
+    function stopStream() {
+      socket.emit('stop_stream');
+      document.querySelector('.stream-button').disabled = false;
+      document.querySelector('.stop-button').disabled = true;
     }
-  });
-
-  function startStream() {
-    socket.emit('start_stream');
-    document.querySelector('.stream-button').disabled = true;
-    document.querySelector('.stop-button').disabled = false;
-  }
-
-  function stopStream() {
-    socket.emit('stop_stream');
-    document.querySelector('.stream-button').disabled = false;
-    document.querySelector('.stop-button').disabled = true;
-  }
-</script>
-
+  </script>
 </body>
 </html>
