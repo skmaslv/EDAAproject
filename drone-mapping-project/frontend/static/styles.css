@@ -432,4 +432,57 @@ p {
     background-color: #ff0;
     color: #000;
 }
+
+
+.elegant-notification {
+    position: fixed;
+    top: 20px;
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    width: fit-content;
+    max-width: 300px;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 15px 25px;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    z-index: 10000;
+    font-family: 'Arial', sans-serif;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(-10px);
+    animation: fadeInSlideDown 0.4s ease-out forwards;
+    pointer-events: none; /* Allows clicks to pass through */
+}
+
+.notification-header {
+    font-weight: bold;
+    margin-bottom: 6px;
+    font-size: 16px;
+}
+
+.notification-body {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+/* Animations */
+@keyframes fadeInSlideDown {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-out {
+    animation: fadeOut 0.5s ease-out forwards !important;
+}
+
+@keyframes fadeOut {
+    to {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+}
   

@@ -42,10 +42,12 @@
   </style>
 </head>
 <body>
-  <div class="header">
-    <a href="http://localhost:5000" class="back-button">
-      <button class="button retro-button">Back</button>
-    </a>
+    <div class="header">
+    <button class="button retro-button back-button" onclick="window.history.back()">Back</button>
+    <div class="control-buttons">
+        <!-- rest of your buttons -->
+    </div>
+        </div>
     <div class="control-buttons">
       <button class="button retro-button stream-button">▶️ Start Stream</button>
       <button class="button retro-button stop-button" disabled>⏹️ Stop Stream</button>
